@@ -26,3 +26,17 @@
 *.exe
 *.out
 *.app
+
+# Ignore plots and results
+*.eps
+*.png
+
+# Backups
+*~
+
+# Results and data
+results/
+data/
+
+# Never ignore python scripts
+!*.py

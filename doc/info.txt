@@ -1,0 +1,10 @@
+* Fields *
+* Temperature equation, operators.f - L179
+T(0) : mixed-layer temperature
+T0 : radiative equilibrium temperature
+Ts : subsurface temperature
+T_t : tendency of T(0)
+T(1) : derivative w.r.t x of T(0)
+T(2) : derivative w.r.t y of T(0)
+
+(u1, v1) : horizontal velocity in the mixed-layer
