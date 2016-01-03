@@ -1,0 +1,3 @@
+[submodule "ATSuite"]
+	path = ATSuite
+	url = https://github.com/atantet/ATSuite
