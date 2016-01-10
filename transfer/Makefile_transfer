@@ -1,0 +1,25 @@
+INCDIR=
+LIBDIR=
+LIBS=-lgsl -lconfig++ -lgomp
+
+CC=g++
+WARN=-Wall
+CFLAGS=$(WARN) -ansi -pedantic-errors -O3 -fopenmp
+LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+LDFLAGS=$(LDFLAGSSTD)
+#LDFLAGS=$(LDFLAGSGDB)
+
+EXE=transferCZ
+
+all:$(EXE).out
+
+$(EXE).o:$(EXE).cpp
+	$(CC) -c $(CFLAGS) $(INCDIR) $(EXE).cpp
+
+$(EXE).out:$(EXE).o
+	$(CC) $(LDFLAGS) -o $(EXE).out $(LIBDIR) $(EXE).o $(LIBS)
+
+clean:
+	rm -f $(EXE).o $(EXE).out

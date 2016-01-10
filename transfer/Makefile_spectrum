@@ -1,0 +1,25 @@
+INCDIR=
+LIBDIR=
+LIBS=-lgsl -lgslcblas -larpack -llapack -lsuperlu_5.1 -lcblas -lconfig++
+
+CC=g++
+WARN=-Wall
+CFLAGS=$(WARN) -ansi -pedantic-errors -O3
+LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+LDFLAGS=$(LDFLAGSSTD)
+#LDFLAGS=$(LDFLAGSGDB)
+
+EXE=spectrumCZ
+
+all:$(EXE).out
+
+$(EXE).o:$(EXE).cpp
+	$(CC) -c $(CFLAGS) $(INCDIR) $(EXE).cpp
+
+$(EXE).out:$(EXE).o
+	$(CC) $(LDFLAGS) -o $(EXE).out $(LIBDIR) $(EXE).o $(LIBS)
+
+clean:
+	rm -f $(EXE).o $(EXE).out

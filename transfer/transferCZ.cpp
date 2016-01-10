@@ -1,36 +1,77 @@
 #define DIM 2
 #include <cstdlib>
 #include <cstdio>
-#include <cmath>
 #include <cstring>
 #include <vector>
-#include <gsl/gsl_sf_log.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_vector_uint.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_matrix_uint.h>
-#include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <libconfig.h++>
-#include "transferOperator.hpp"
-#include "atio.hpp"
+#include <ATSuite/transferOperator.hpp>
+#include <ATSuite/atio.hpp>
 
+/** \file transferCZ.cpp
+ *  \brief Get transition matrices and distributions for the Cane-Zebiak model.
+ *   
+ * Get transition matrices and distributions from a long time series
+ * from the Cane-Zebiak model.
+ * For configuration, the file cfg/transferCZ.cfg is parsed using libconfig C++ library.
+ * In this case, several time series corresponding to different
+ * noise realizations are used.
+ * First read the observable and get its mean and standard deviation
+ * used to adapt the grid.
+ * A rectangular grid is used here.
+ * A grid membership vector is calculated for each time series 
+ * assigning to each realization a grid box.
+ * Then, the membership matrix is calculated for a given lag
+ * with a concatenation over the seeds.
+ * The forward and backward transition matrices as well as the initial and final distributions
+ * are calculated from the membership matrix.
+ * Note that, since the transitions are calculated from long time series,
+ * these distributions should be equal (to the exception of the first and last realizations).
+ * Finally, the results are printed.
+ */
+
+/** \brief Eigen sparse CSR matrix of double type. */
 typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SpMatCSC;
+/** \brief Eigen sparse CSC matrix of double type. */
 typedef Eigen::SparseMatrix<double, Eigen::RowMajor> SpMatCSR;
 
 using namespace libconfig;
 
 
 // Declarations
+/**
+ * User defined function to get parameters from config file cfg/transferCZ.cfg using libconfig.
+ */
 int readConfig(char *);
+
+/**
+ * Structure defining a field.
+ */
 struct fieldDef {
+  /**
+   * Column index of the field in the data file.
+   */
   int tableIdx;
+  /**
+   * Short field name used for file names.
+   */
   char shortName[256];
+  /**
+   * Factor to convert the field from adimensional to dimensional units.
+   */
   double toDimFactor;
 };
+
+// Paths
 const char prefix[] = "zc_1eof_";
-const char indexDir[] = "../observables/";
+const char indexDir[] = "../data/observables/";
 const size_t dimSeries = 5;
+
+// Units
 const double L = 1.5e7;
 const double c0 = 2.;
 const double timeDim = L / c0 / (60. * 60. * 24);
@@ -56,15 +97,18 @@ size_t nLags;
 gsl_vector *tauDimRng;
 
 
+// Main program
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (readConfig(argv[0])) {
+  if (readConfig("transferCZ")) {
     std::cerr << "Error reading config file " << argv[0] << ".cfg"
 	      << std::endl;
     return(EXIT_FAILURE);
   }
 
+  // Declarations
+  // Simulation parameters
   const double sampFreq = 0.35 / dt;
   size_t spinup = (size_t) (spinupMonth * sampFreq);
 
@@ -85,7 +129,7 @@ int main(int argc, char * argv[])
   // Vectors and matrices
   size_t tauStep;
   double tauDim;
-  vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
+  std::vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
   gsl_matrix_uint *gridMemMatrix, *gridMemMatrixSeed;
   SpMatCSR *P, *Q;
   gsl_vector *initDist, *finalDist;
@@ -119,6 +163,7 @@ int main(int argc, char * argv[])
   // Get membership vector
   if (! readGridMem) {
     for (size_t seed = 0; seed < nSeeds; seed++) {
+      
       // Read observable
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
       strcpy(obsName, "");
@@ -163,7 +208,8 @@ int main(int argc, char * argv[])
 	gsl_matrix_free(data);
       }
     }
-    
+
+    // Create grid
     // Define grid bounds
     xmin = gsl_vector_alloc(DIM);
     xmax = gsl_vector_alloc(DIM);
@@ -179,10 +225,9 @@ int main(int argc, char * argv[])
 		     + gsl_vector_get(nSTDHigh, d)
 		     * gsl_vector_get(statesSTD, d));
     }
-
     // Open grid
     sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
-    sprintf(gridFileName, "grid/grid%s.txt", gridPostfix);
+    sprintf(gridFileName, "../results/grid/grid%s.txt", gridPostfix);
     if ((gridFile = fopen(gridFileName, "w")) == NULL){
       fprintf(stderr, "Can't open %s for writing!\n", gridFileName);
       return(EXIT_FAILURE);
@@ -199,7 +244,7 @@ int main(int argc, char * argv[])
       // Open grid membership file
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
       sprintf(gridPostfixSeed, "_%s%s%s", srcPostfixSeed, obsName, gridCFG);
-      sprintf(gridMemFileName, "transitionMatrix/gridMem%s.txt",
+      sprintf(gridMemFileName, "../results/transitionMatrix/gridMem%s.txt",
 	      gridPostfixSeed);
       if ((gridMemFile = fopen(gridMemFileName, "w")) == NULL){
 	fprintf(stderr, "Can't open %s for writing!\n", gridMemFileName);
@@ -241,7 +286,7 @@ int main(int argc, char * argv[])
     }
   }
 
-  // Get transition matrices for ifferent lags
+  // Get transition matrices for different lags
   for (size_t lag = 0; lag < nLags; lag++){
     tauDim = gsl_vector_get(tauDimRng, lag);
     tauStep = (size_t) (tauDim * sampFreq);
@@ -250,7 +295,7 @@ int main(int argc, char * argv[])
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
     // Forward transition matrix
     sprintf(forwardTransitionFileName,
-	    "transitionMatrix/forwardTransition%s.csr", postfix);
+	    "../results/transitionMatrix/forwardTransition%s.csr", postfix);
     if ((forwardTransitionFile = fopen(forwardTransitionFileName, "w"))
 	== NULL){
       fprintf(stderr, "Can't open %s for writing!\n",
@@ -259,7 +304,7 @@ int main(int argc, char * argv[])
     }
     // Backward transition matrix
     sprintf(backwardTransitionFileName,
-	    "transitionMatrix/backwardTransition%s.csr", postfix);
+	    "../results/transitionMatrix/backwardTransition%s.csr", postfix);
     if ((backwardTransitionFile = fopen(backwardTransitionFileName, "w"))
 	== NULL){
       fprintf(stderr, "Can't open %s for writing!\n",
@@ -267,13 +312,13 @@ int main(int argc, char * argv[])
       return(EXIT_FAILURE);
     }
     // Initial distribution
-    sprintf(initDistFileName, "transitionMatrix/initDist%s.txt", postfix);
+    sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
     if ((initDistFile = fopen(initDistFileName, "w")) == NULL){
       fprintf(stderr, "Can't open %s for writing!\n", initDistFileName);
       return(EXIT_FAILURE);
     }
     // Final distribution
-    sprintf(finalDistFileName, "transitionMatrix/finalDist%s.txt", postfix);
+    sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
     if ((finalDistFile = fopen(finalDistFileName, "w")) == NULL){
       fprintf(stderr, "Can't open %s for writing!\n", finalDistFileName);
       return(EXIT_FAILURE);
@@ -361,7 +406,7 @@ int readConfig(char *cfgFileNamePrefix)
     std::cout << "Settings:" << std::endl;
     
     // Get caseDef settings
-    std::cout << endl << "---caseDef---" << std::endl;
+    std::cout << std::endl << "---caseDef---" << std::endl;
     // Indices and Fields
     const Setting &indicesNameSetting = cfg.lookup("caseDef.indicesName");
     const Setting &fieldsNameSetting = cfg.lookup("caseDef.fieldsName");
@@ -397,12 +442,12 @@ int readConfig(char *cfgFileNamePrefix)
       // Get simulation settings
     dt = cfg.lookup("simulation.dt");
     spinupMonth = cfg.lookup("simulation.spinupMonth");
-    std::cout << endl << "---simulation---" << std::endl
+    std::cout << std::endl << "---simulation---" << std::endl
   	      << "dt: " << dt << std::endl
   	      << "spinupMonth: " << spinupMonth << std::endl;
 
     // Get grid settings
-    std::cout << endl << "---grid---" << std::endl;
+    std::cout << std::endl << "---grid---" << std::endl;
     const Setting &nxSetting = cfg.lookup("grid.nx");
     const Setting &nSTDLowSetting = cfg.lookup("grid.nSTDLow");
     const Setting &nSTDHighSetting = cfg.lookup("grid.nSTDHigh");
