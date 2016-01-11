@@ -1,12 +1,18 @@
 INCDIR=
 LIBDIR=
-LIBS=-lgsl -lconfig++ -lgomp
+LIBS=-lgsl -lconfig++
 
 CC=g++
 WARN=-Wall
-CFLAGS=$(WARN) -ansi -pedantic-errors -O3 -fopenmp
+CFLAGS=$(WARN) -ansi -pedantic-errors -O3
 LDFLAGSSTD=-undefined dynamic_lookup
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+# Use OpenMP?
+ifeq ($(WITH_OMP),1)
+  LIBS +=-lgomp
+  CFLAGS += -fopenmp -DWITH_OMP=$(WITH_OMP)
+endif
 
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
