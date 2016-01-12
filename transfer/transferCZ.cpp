@@ -119,9 +119,7 @@ int main(int argc, char * argv[])
     forwardTransitionFileName[256], backwardTransitionFileName[256],
     initDistFileName[256], finalDistFileName[256];
   char gridFileName[256];
-  FILE *gridMemFile, *gridFile,
-    *forwardTransitionFile, *backwardTransitionFile,
-    *initDistFile, *finalDistFile;
+  FILE *gridMemFile;
   FILE *indexFile[DIM];
   char indexPath[DIM][256];
   size_t count;
@@ -130,9 +128,8 @@ int main(int argc, char * argv[])
   size_t tauStep;
   double tauDim;
   std::vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
-  gsl_matrix_uint *gridMemMatrix, *gridMemMatrixSeed;
-  SpMatCSR *P, *Q;
-  gsl_vector *initDist, *finalDist;
+  gsl_matrix_uint *gridMemMatrix;
+  transferOperator *transferOp;
   gsl_matrix *data;
   gsl_vector *xmin;
   gsl_vector *xmax;
@@ -144,15 +141,13 @@ int main(int argc, char * argv[])
   size_t ntTot = 0;
 
   // Grid related
-  size_t N = 1;
-  std::vector<gsl_vector *> *gridBounds;
+  Grid *grid;
 
   // Define grid name
   sprintf(srcPostfix, "%smu%04d_eps%04d", prefix, (int) (mu*1000),
 	  (int) (eps*1000));
   sprintf(gridCFG, "");
   for (size_t d = 0; d < DIM; d++) {
-    N *= gsl_vector_uint_get(nx, d);
     strcpy(cpyBuffer, gridCFG);
     sprintf(gridCFG, "%s_n%dl%dh%d", cpyBuffer,
 	    gsl_vector_uint_get(nx, d),
@@ -210,7 +205,7 @@ int main(int argc, char * argv[])
     }
 
     // Create grid
-    // Define grid bounds
+    // Define grid limits
     xmin = gsl_vector_alloc(DIM);
     xmax = gsl_vector_alloc(DIM);
     for (size_t d = 0; d < DIM; d++) {
@@ -225,19 +220,12 @@ int main(int argc, char * argv[])
 		     + gsl_vector_get(nSTDHigh, d)
 		     * gsl_vector_get(statesSTD, d));
     }
-    // Open grid
+    // Define grid
     sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
     sprintf(gridFileName, "../results/grid/grid%s.txt", gridPostfix);
-    if ((gridFile = fopen(gridFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", gridFileName);
-      return(EXIT_FAILURE);
-    }
-    // Define grid
-    gridBounds = getGridRect(nx, xmin, xmax);
-    // Write Grid
-    writeGridRect(gridFile, gridBounds, true);
-    // Close
-    fclose(gridFile);
+    grid = new Grid(nx, xmin, xmax);
+    // Print grid
+    grid->printGrid(gridFileName, "%lf", true);
 
     // Get grid membership for each seed
     for (size_t seed = 0; seed < nSeeds; seed++){
@@ -254,7 +242,7 @@ int main(int argc, char * argv[])
       // Get grid membership
       std::cout << "Getting grid membership vector for seed" << seed
 		<< std::endl;
-      gridMemSeeds[seed] = getGridMembership(statesSeeds[seed], gridBounds);
+      gridMemSeeds[seed] = getGridMemVector(statesSeeds[seed], grid);
 
       // Write grid membership
       gsl_vector_uint_fprintf(gridMemFile, gridMemSeeds[seed], "%d");
@@ -262,9 +250,6 @@ int main(int argc, char * argv[])
     }
 
     // Free
-    for (size_t d = 0; d < DIM; d++)
-      gsl_vector_free((*gridBounds)[d]);
-    delete gridBounds;
     gsl_vector_free(xmin);
     gsl_vector_free(xmax);
     for (size_t seed = 0; seed < nSeeds; seed++){
@@ -272,6 +257,10 @@ int main(int argc, char * argv[])
     }
   }
   else {
+    // Create empty grid
+    grid = new Grid(nx);
+      
+    // Read membership vectors
     for (size_t seed = 0; seed < nSeeds; seed++) {
       gridMemSeeds[seed] = gsl_vector_uint_alloc(gsl_vector_uint_get(ntSeeds,
 								     seed));
@@ -291,86 +280,38 @@ int main(int argc, char * argv[])
     tauDim = gsl_vector_get(tauDimRng, lag);
     tauStep = (size_t) (tauDim * sampFreq);
 
-    // Open forward and backward files
+    // Update file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
-    // Forward transition matrix
     sprintf(forwardTransitionFileName,
 	    "../results/transitionMatrix/forwardTransition%s.csr", postfix);
-    if ((forwardTransitionFile = fopen(forwardTransitionFileName, "w"))
-	== NULL){
-      fprintf(stderr, "Can't open %s for writing!\n",
-	      forwardTransitionFileName);
-      return(EXIT_FAILURE);
-    }
-    // Backward transition matrix
     sprintf(backwardTransitionFileName,
 	    "../results/transitionMatrix/backwardTransition%s.csr", postfix);
-    if ((backwardTransitionFile = fopen(backwardTransitionFileName, "w"))
-	== NULL){
-      fprintf(stderr, "Can't open %s for writing!\n",
-	      backwardTransitionFileName); 
-      return(EXIT_FAILURE);
-    }
-    // Initial distribution
     sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
-    if ((initDistFile = fopen(initDistFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", initDistFileName);
-      return(EXIT_FAILURE);
-    }
-    // Final distribution
     sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
-    if ((finalDistFile = fopen(finalDistFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", finalDistFileName);
-      return(EXIT_FAILURE);
-    }
 
     // Get full membership matrix
-    std::cout << "Getting full membership matrix" << std::endl;
-    count = 0;
-    gridMemMatrix = gsl_matrix_uint_alloc(ntTot - tauStep * nSeeds, 2);
-    for (size_t seed = 0; seed < nSeeds; seed++) {
-      gridMemMatrixSeed = getGridMembership(gridMemSeeds[seed], tauStep);
-      for (size_t t = 0; t < gsl_vector_uint_get(ntSeeds, seed)-tauStep; t++) {
-	gsl_matrix_uint_set(gridMemMatrix, count, 0,
-			    gsl_matrix_uint_get(gridMemMatrixSeed, t, 0));
-	gsl_matrix_uint_set(gridMemMatrix, count, 1,
-			    gsl_matrix_uint_get(gridMemMatrixSeed, t, 1));
-	count++;
-      }
-      gsl_matrix_uint_free(gridMemMatrixSeed);
-    }
+    std::cout << "Getting full membership matrix from the list of membership vecotrs..."
+	      << std::endl;
+    gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauStep);
 
-    // Get transition matrices as CSR 
-    P = new SpMatCSR(N, N);
-    Q = new SpMatCSR(N, N);
-    initDist = gsl_vector_alloc(N);
-    finalDist = gsl_vector_alloc(N);
-    std::cout << "Getting transition matrix" << std::endl;
-    getTransitionMatrix(gridMemMatrix, N, P, Q, initDist, finalDist);
+    // Get transition matrices as CSR
+    std::cout << "Building transfer operator..." << std::endl;
+    transferOp = new transferOperator(gridMemMatrix, grid->N);
     
     // Write transition matrix as CSR
-    std::cout << "Writing forward transition matrix to "
-	      << forwardTransitionFileName << std::endl;
-    Eigen2Compressed(forwardTransitionFile, P);
-    fclose(forwardTransitionFile);
-    std::cout << "Writing backward transition matrix to "
-	      << backwardTransitionFileName << std::endl;
-    Eigen2Compressed(backwardTransitionFile, Q);
-    fclose(backwardTransitionFile);
-    gsl_vector_fprintf(initDistFile, initDist, "%f");
-    fclose(initDistFile);
-    gsl_vector_fprintf(finalDistFile, finalDist, "%f");
-    fclose(finalDistFile);
-
+    std::cout << "Writing transfer operator..." << std::endl;
+    transferOp->printForwardTransition(forwardTransitionFileName, "%lf");
+    transferOp->printBackwardTransition(forwardTransitionFileName, "%lf");
+    transferOp->printInitDist(initDistFileName, "%lf");
+    transferOp->printFinalDist(finalDistFileName, "%lf");
+	
     // Free
-    gsl_vector_free(initDist);
-    gsl_vector_free(finalDist);
+    delete transferOp;
     gsl_matrix_uint_free(gridMemMatrix);
-    delete P;
-    delete Q;
   }
 
   // Free
+  delete grid;
   gsl_vector_uint_free(nx);
   gsl_vector_free(nSTDLow);
   gsl_vector_free(nSTDHigh);
