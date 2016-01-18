@@ -4,13 +4,10 @@
 #include <cstring>
 #include <vector>
 #include <gsl/gsl_vector.h>
-#include <gsl/gsl_vector_uint.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_matrix_uint.h>
-#include <Eigen/Sparse>
+#include <gsl/gsl_math.h>
 #include <libconfig.h++>
 #include <ATSuite/transferOperator.hpp>
-#include <ATSuite/atio.hpp>
 
 /** \file transferCZ.cpp
  *  \brief Get transition matrices and distributions for the Cane-Zebiak model.
@@ -34,19 +31,16 @@
  * Finally, the results are printed.
  */
 
-/** \brief Eigen sparse CSR matrix of double type. */
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SpMatCSC;
-/** \brief Eigen sparse CSC matrix of double type. */
-typedef Eigen::SparseMatrix<double, Eigen::RowMajor> SpMatCSR;
-
 using namespace libconfig;
 
 
 // Declarations
-/**
- * User defined function to get parameters from config file cfg/transferCZ.cfg using libconfig.
- */
-int readConfig(char *);
+/** \brief User defined function to get parameters from a cfg file using libconfig. */
+int readConfig(const char *cfgFileNamePrefix);
+
+/** \briefCount number of lines in file. */
+size_t lineCount(FILE *fp);
+
 
 /**
  * Structure defining a field.
@@ -198,7 +192,7 @@ int main(int argc, char * argv[])
 	  gsl_vector_set(statesMean, d, gsl_vector_get(statesMean, d) \
 			 + gsl_matrix_get(statesSeeds[seed], k, d));
 	  gsl_vector_set(statesSTD, d, gsl_vector_get(statesSTD, d)
-			 + pow(gsl_matrix_get(statesSeeds[seed], k, d), 2));
+			 + gsl_pow_2(gsl_matrix_get(statesSeeds[seed], k, d)));
 	}
 	gsl_matrix_free(data);
       }
@@ -212,7 +206,7 @@ int main(int argc, char * argv[])
       gsl_vector_set(statesMean, d, gsl_vector_get(statesMean, d) / ntTot);
       gsl_vector_set(statesSTD, d,
 		     sqrt(gsl_vector_get(statesSTD, d) / ntTot
-			  - pow(gsl_vector_get(statesMean, d), 2)));
+			  - gsl_pow_2(gsl_vector_get(statesMean, d))));
       gsl_vector_set(xmin, d, gsl_vector_get(statesMean, d)
 		     - gsl_vector_get(nSTDLow, d)
 		     * gsl_vector_get(statesSTD, d));
@@ -225,7 +219,7 @@ int main(int argc, char * argv[])
     sprintf(gridFileName, "../results/grid/grid%s.txt", gridPostfix);
     grid = new Grid(nx, xmin, xmax);
     // Print grid
-    grid->printGrid(gridFileName, "%lf", true);
+    grid->printGrid(gridFileName, "%.12lf", true);
 
     // Get grid membership for each seed
     for (size_t seed = 0; seed < nSeeds; seed++){
@@ -283,9 +277,9 @@ int main(int argc, char * argv[])
     // Update file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
     sprintf(forwardTransitionFileName,
-	    "../results/transitionMatrix/forwardTransition%s.csr", postfix);
+	    "../results/transitionMatrix/forwardTransition%s.coo", postfix);
     sprintf(backwardTransitionFileName,
-	    "../results/transitionMatrix/backwardTransition%s.csr", postfix);
+	    "../results/transitionMatrix/backwardTransition%s.coo", postfix);
     sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
     sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
 
@@ -300,10 +294,10 @@ int main(int argc, char * argv[])
     
     // Write transition matrix as CSR
     std::cout << "Writing transfer operator..." << std::endl;
-    transferOp->printForwardTransition(forwardTransitionFileName, "%lf");
-    transferOp->printBackwardTransition(forwardTransitionFileName, "%lf");
-    transferOp->printInitDist(initDistFileName, "%lf");
-    transferOp->printFinalDist(finalDistFileName, "%lf");
+    transferOp->printForwardTransition(forwardTransitionFileName, "%.12lf");
+    transferOp->printBackwardTransition(backwardTransitionFileName, "%.12lf");
+    transferOp->printInitDist(initDistFileName, "%.12lf");
+    transferOp->printFinalDist(finalDistFileName, "%.12lf");
 	
     // Free
     delete transferOp;
@@ -323,7 +317,8 @@ int main(int argc, char * argv[])
 }
 
 // Definitions
-int readConfig(char *cfgFileNamePrefix)
+int
+readConfig(const char *cfgFileNamePrefix)
 {
   char cfgFileName[256];
   sprintf(cfgFileName, "cfg/%s.cfg", cfgFileNamePrefix);
@@ -431,3 +426,28 @@ int readConfig(char *cfgFileNamePrefix)
 
   return 0;
 }
+
+
+/**
+ * \brief Count the number of lines in a file.
+ *
+ * Count the number of lines in a file.
+ * \param[in] fp File from which to count lines.
+ * \return Number of lines in file.
+ */
+size_t
+lineCount(FILE *fp)
+{
+  size_t count = 0;
+  int ch;
+
+  // Count lines
+  do {
+    ch = fgetc(fp);
+    if (ch == '\n')
+      count++;
+  } while (ch != EOF);
+
+  return count;
+}
+

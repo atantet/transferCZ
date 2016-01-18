@@ -5,15 +5,12 @@
 #include <cstring>
 #include <vector>
 #include <gsl/gsl_vector.h>
-#include <gsl/gsl_vector_uint.h>
 #include <gsl/gsl_matrix.h>
-#include <Eigen/Sparse>
 #include <libconfig.h++>
 #include <arpack++/arlnsmat.h>
 #include <arpack++/arlsnsym.h>
-#include <ATSuite/atio.hpp>
 #include <ATSuite/transferOperator.hpp>
-#include <ATSuite/atspectrum.hpp>
+#include <ATSuite/transferSpectrum.hpp>
 
 
 /** \file spectrumCZ.cpp
@@ -26,11 +23,6 @@
  * Finally, the results are written to file.
  */
 
-/** \brief Eigen sparse CSR matrix of double type. */
-typedef Eigen::SparseMatrix<double, Eigen::RowMajor> SpMatCSR;
-/** \brief Eigen sparse CSC matrix of double type. */
-typedef Eigen::SparseMatrix<double, Eigen::ColMajor> SpMatCSC;
-
 using namespace libconfig;
 
 
@@ -38,7 +30,7 @@ using namespace libconfig;
 /**
  * User defined function to get parameters from config file cfg/transferCZ.cfg using libconfig.
  */
-int readConfig(char *);
+int readConfig(const char *cfgFileNamePrefix);
 
 /**
  * Structure defining a field.
@@ -105,7 +97,7 @@ int main(int argc, char * argv[])
   double tauDim;
 
   // Filtering
-  double alpha;
+  double tol;
 
   // Eigen problem
   int nconv;
@@ -116,16 +108,12 @@ int main(int argc, char * argv[])
   char forwardTransitionFileName[256], backwardTransitionFileName[256],
     initDistFileName[256], finalDistFileName[256];
 
-  char EigValFileName[256];
-  char EigVecFileName[256];
-  FILE *forwardTransitionFile, *backwardTransitionFile,
-    *initDistFile, *finalDistFile, *EigValFile, *EigVecFile;
+  char EigValForwardFileName[256], EigVecForwardFileName[256],
+    EigValBackwardFileName[256], EigVecBackwardFileName[256];
 
   // Transition Matrix
-  ARluNonSymMatrix<double, double> *PT, *QT;
-  SpMatCSR PCSR, QCSR;
-  SpMatCSC PTCSC, QTCSC;
-  gsl_vector *initDist, *finalDist;
+  transferOperator *transferOp;
+  transferSpectrum *transferSpec;
   
   // Define grid name
   sprintf(srcPostfix, "%smu%04d_eps%04d", prefix, (int) (mu*1000),
@@ -144,161 +132,65 @@ int main(int argc, char * argv[])
   }
   strcpy(cpyBuffer, gridPostfix);
   sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, cpyBuffer);
-  
-  // Eigen problem
-  double *EigValReal = new double [nev+1];
-  double *EigValImag = new double [nev+1];
-  double *EigVec = new double [(nev+2)*N];
-  
+
   // Scan transition matrices and distributions for different lags
-  initDist = gsl_vector_alloc(N);
-  finalDist = gsl_vector_alloc(N);
   for (size_t lag = 0; lag < nLags; lag++){
     tauDim = gsl_vector_get(tauDimRng, lag);
-    alpha = minNumberStates * 1. / ((nYears*sampFreq*12 - tauDim)*nSeeds);
-    std::cout << "alpha = " << alpha << std::endl;
+    tol = minNumberStates * 1. / ((nYears*sampFreq*12 - tauDim)*nSeeds);
+    std::cout << "alpha = " << tol << std::endl;
 
-    // Open source files from which to read the transition matrices and distributions
+    // Get file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
-    // Forward transition matrix
     sprintf(forwardTransitionFileName, \
-	    "../results/transitionMatrix/forwardTransition%s.csr", postfix);
-    if ((forwardTransitionFile = fopen(forwardTransitionFileName, "r")) \
-	== NULL){
-      fprintf(stderr, "Can't open %s for reading!\n",
-	      forwardTransitionFileName);
-      return -1;
-    }
-    // Backward transition matrix
+	    "../results/transitionMatrix/forwardTransition%s.coo", postfix);
     sprintf(backwardTransitionFileName,
-	    "../results/transitionMatrix/backwardTransition%s.csr", postfix);
-    if ((backwardTransitionFile = fopen(backwardTransitionFileName, "r"))
-	== NULL){
-      fprintf(stderr, "Can't open %s for reading!\n",
-	      backwardTransitionFileName);
-      return -1;
-    }
-    // Initial distribution
+	    "../results/transitionMatrix/backwardTransition%s.coo", postfix);
     sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
-    if ((initDistFile = fopen(initDistFileName, "r")) \
-	== NULL){
-      fprintf(stderr, "Can't open %s for reading!\n",
-	      initDistFileName);
-      return -1;
-    }
-    // Final distribution
     sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
-    if ((finalDistFile = fopen(finalDistFileName, "r")) \
-	== NULL){
-      fprintf(stderr, "Can't open %s for reading!\n",
-	      finalDistFileName);
-      return -1;
-    }
+    sprintf(EigValForwardFileName, "../results/spectrum/eigval/eigval_nev%d%s.txt",
+	    nev, postfix);
+    sprintf(EigVecForwardFileName, "../results/spectrum/eigvec/eigvec_nev%d%s.txt",
+	    nev, postfix);
+    sprintf(EigValBackwardFileName, "../results/spectrum/eigval/eigvalAdjoint_nev%d%s.txt",
+	    nev, postfix);
+    sprintf(EigVecBackwardFileName, "../results/spectrum/eigvec/eigvecAdjoint_nev%d%s.txt",
+	    nev, postfix);
 
-    // Read transition matrices written in CSR as CSC to take the transpose
-    std::cout << std::endl << "Reading transpose forward transition matrix for lag "
-	      << tauDim << " in " << forwardTransitionFileName << std::endl;
-    // Read initial and final distributions
-    gsl_vector_fscanf(initDistFile, initDist);
-    fclose(initDistFile);
-    gsl_vector_fscanf(finalDistFile, finalDist);
-    fclose(finalDistFile);
-    // Read forward transition matrix
-    PCSR = *Compressed2Eigen(forwardTransitionFile);
-    fclose(forwardTransitionFile);
+    // Read transfer operator
+    std::cout << "Reading transfer operator..." << std::endl;
+    transferOp = new transferOperator;
+    transferOp->N = N;
+    transferOp->scanInitDist(initDistFileName);
+    transferOp->scanFinalDist(finalDistFileName);
+    transferOp->scanForwardTransition(forwardTransitionFileName);
+    transferOp->scanBackwardTransition(backwardTransitionFileName);
+
     // Filter and get left stochastic
-    filterTransitionMatrix(&PCSR, initDist, finalDist, alpha, 2);
-    // Get transpose and convert to arpack
-    PTCSC = SpMatCSC(PCSR.transpose());
-    PT = Eigen2AR(&PTCSC);
+    transferOp->filter(tol);
 
-    // Declare eigen problem: real non-symetric (see examples/areig.h)
-    std::cout << "Solving eigen problem for the first " << nev
-	      << " eigenvalues on a square matrix of size " << PT->nrows()
-	      << " with non-zeros " << PT->nzeros()
-	      << std::endl;
-    // Call
-    nconv = getSpectrum(PT, nev, cfgAR, EigValReal, EigValImag, EigVec);
-    std::cout << "Found " << nconv << "/" << nev << " eigenvalues."
-	      << std::endl;
+    // Solve eigen value problem with default configuration
+    std::cout << "Solving eigen problem for the first " << nev << std::endl;
+    transferSpec = new transferSpectrum(nev, transferOp);
+    nconv = transferSpec->getSpectrum();
+    std::cout << "Found " << nconv << "/" << (nev * 2) << " eigenvalues." << std::endl;
 
     // Open destination files and write spectrum
-    sprintf(EigValFileName, "../results/spectrum/eigval/eigval_nev%d%s.txt", nev, postfix);
-    sprintf(EigVecFileName, "../results/spectrum/eigvec/eigvec_nev%d%s.txt", nev, postfix);
-    if ((EigValFile = fopen(EigValFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", EigValFileName);
-      return -1;
-    }
-    if ((EigVecFile = fopen(EigVecFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", EigVecFileName);
-      return -1;
-    }
-    std::cout << "Write eigenvalues to " << EigValFileName << std::endl;
-    std::cout << "and eigenvectors to " << EigVecFileName << std::endl;
-    writeSpectrum(EigValFile, EigVecFile, EigValReal, EigValImag, EigVec,
-		  nev, N);
-    fclose(EigValFile);
-    fclose(EigVecFile);
-    delete PT;
+    std::cout << "Write spectrum..." << std::endl;
+    nconv = transferSpec->writeSpectrum(EigValForwardFileName, EigVecForwardFileName,
+					EigValBackwardFileName, EigVecBackwardFileName);
 
-
-    // Solve the adjoint problem on the transpose (of the transpose)
-    // Read backward transition matrix
-    std::cout << std::endl << "Reading backward transition matrix for lag "
-	      << tauDim << " in " << backwardTransitionFileName << std::endl;
-    QCSR = *Compressed2Eigen(backwardTransitionFile);
-    fclose(backwardTransitionFile);
-    // Filter and get left stochastic
-    filterTransitionMatrix(&QCSR, finalDist, initDist, alpha, 2);
-    // Get transpose and convert to arpack
-    QTCSC = SpMatCSC(QCSR.transpose());
-    QT = Eigen2AR(&QTCSC);
-
-    // Declare eigen problem: real non-symetric (see examples/areig.h)
-    std::cout << "Solving eigen problem for the first " << nev
-	      << " eigenvalues" << std::endl;
-    // Call
-    nconv = getSpectrum(QT, nev, cfgAR, EigValReal, EigValImag, EigVec);
-    std::cout << "Found " << nconv << "/" << nev << " eigenvalues."
-	      << std::endl;
-
-    // Open destination files and write spectrum
-    sprintf(EigValFileName, "../results/spectrum/eigval/eigvalAdjoint_nev%d%s.txt",
-	    nev, postfix);
-    sprintf(EigVecFileName, "../results/spectrum/eigvec/eigvecAdjoint_nev%d%s.txt",
-	    nev, postfix);
-    if ((EigValFile = fopen(EigValFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", EigValFileName);
-      return -1;
-    }
-    if ((EigVecFile = fopen(EigVecFileName, "w")) == NULL){
-      fprintf(stderr, "Can't open %s for writing!\n", EigVecFileName);
-      return -1;
-    }
-    std::cout << "Write adjoint eigenvalues to " << EigValFileName
-	      << std::endl;
-    std::cout << "and adjoint eigenvectors to " << EigVecFileName
-	      << std::endl;
-    writeSpectrum(EigValFile, EigVecFile, EigValReal, EigValImag, EigVec,
-		  nev, N);
-    fclose(EigValFile);
-    fclose(EigVecFile);
-    delete QT;
+    // Free
+    delete transferOp;
+    delete transferSpec;
   }
-  
-  // Clean-up
-  delete[] EigValReal;
-  delete[] EigValImag;
-  delete[] EigVec;
-  gsl_vector_free(initDist);
-  gsl_vector_free(finalDist);
   
   return 0;
 }
 
 
 // Definitions
-int readConfig(char *cfgFileNamePrefix)
+int
+readConfig(const char *cfgFileNamePrefix)
 {
   char cfgFileName[256];
   sprintf(cfgFileName, "cfg/%s.cfg", cfgFileNamePrefix);

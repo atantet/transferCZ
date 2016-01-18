@@ -7,7 +7,9 @@ import atmath, atplot
 neof = 1
 prefix = 'zc'
 simType = '_%deof' % (neof,)
-indicesDir = '../observables/'
+indicesDir = '../data/observables/'
+resDir = '../results/'
+plotDir = '../results/plot/'
 
 # Case definition
 timeFreq = 0.35 / 0.060 # (integration frequency in months
@@ -75,10 +77,10 @@ for eps in epsRng:
         for s in np.arange(nSeeds):
             seed = seedRng[s]
             print 'for seed', seed
-            resDir = '%s%s_mu%04d_eps%04d_seed%d/' \
-                     % (prefix, simType, np.round(mu * 1000, 1),
-                        np.round(eps * 1000, 1), seed)
-            indicesPath = '%s/%s/' % (indicesDir, resDir)
+            caseDir = '%s%s_mu%04d_eps%04d_seed%d/' \
+                      % (prefix, simType, np.round(mu * 1000, 1),
+                         np.round(eps * 1000, 1), seed)
+            indicesPath = '%s/%s/' % (indicesDir, caseDir)
 
             indexPath1 = '%s/%s.txt' % (indicesPath, indexDef1[1])
             indexPath2 = '%s/%s.txt' % (indicesPath, indexDef2[1])
@@ -121,15 +123,17 @@ for eps in epsRng:
         perioSTD = np.sqrt(perioSTD / (nSeeds * nTapes))
 
         # Save results
-        np.savetxt('%s/ccf%s_lagMax%dyr.txt' % (outDir, postfix, lagMax), ccf)
-        np.savetxt('%s/perio%s.txt' % (outDir, postfix), perio)
-        np.savetxt('%s/perioSTD%s.txt' % (outDir, postfix), perioSTD)
-        np.savetxt('%s/freq%s.txt' % (outDir, postfix), freq)
+        np.savetxt('%s/%s/ccf%s_nSeeds%d_lagMax%dyr.txt'\
+                   % (resDir, outDir, postfix, nSeeds, lagMax), ccf)
+        np.savetxt('%s/%s/perio%s_nSeeds%d.txt' % (resDir, outDir, postfix, nSeeds), perio)
+        np.savetxt('%s/%s/perioSTD%s_nSeeds%d.txt' % (resDir, outDir, postfix, nSeeds), perioSTD)
+        np.savetxt('%s/%s/freq%s_nSeeds%d.txt' % (resDir, outDir, postfix, nSeeds), freq)
         
         # Plot CCF
         print 'Plotting correlation function...'
         (fig, ax) = atplot.plotCCF(ccf, lags)
-        plt.savefig('%s/ccf%s.%s' % (outDir, postfix, atplot.figFormat),
+        plt.savefig('%s/%s/ccf%s_nSeeds%d_lagMax%dyr.%s'\
+                    % (plotDir, outDir, postfix, nSeeds, lagMax, atplot.figFormat),
                     dpi=atplot.dpi, bbox_inches=atplot.bbox_inches)
 
         # Plot perio
@@ -139,6 +143,7 @@ for eps in epsRng:
                                      absUnit='yr$^{-1}$', yscale='log',
                                      xlim=(0, 4*2*np.pi),
                                      ylim=(yminPerio, ymaxPerio))
-        fig.savefig('%s/perio%s.%s' % (outDir, postfix, atplot.figFormat),
+        fig.savefig('%s/%s/perio%s_nSeeds%d.%s'\
+                    % (plotDir, outDir, postfix, nSeeds, atplot.figFormat),
                     dpi=atplot.dpi, bbox_inches=atplot.bbox_inches)
 

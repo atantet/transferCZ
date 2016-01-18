@@ -21,9 +21,9 @@ field_taux = (4, 'external wind-stress', 'taux', 'm/s')
 nino3 = ('Eastern', 'nino3')
 nino4 = ('Western', 'nino4')
 
-mu = 2.5
+#mu = 2.5
 #mu = 2.8
-#mu = 2.9
+mu = 2.9
 #mu = 3.5
 eps = 0.05
 indicesName = [nino3, nino4]
@@ -44,27 +44,26 @@ tauDimRng = np.array([3.])
 
 nev = 50
 alpha = 0.0
-nevPlot = 0
-#nevPlot = 7
-plotAdjoint = False
-#plotAdjoint = True
+#nevPlot = 0
+nevPlot = 5
+#plotAdjoint = False
+plotAdjoint = True
 plotImag = False
 #plotImag = True
-#normEig = False
-normEig = True
+normEig = False
+#normEig = True
 #plotCCF = False
 plotCCF = True
 xminEigval = -1.2
 yminEigval = -11.5
 lagMax = 100
 
-os.system('mkdir spectrum/eigval/figs spectrum/eigvec/figs' \
-          + 'spectrum/ccf 2> /dev/null')
-
+resDir = '../results/'
+specDir = '%s/spectrum/' % resDir
+plotDir = '%s/plot/' % resDir
 srcPostfix = "%s%s_mu%04d_eps%04d" % (prefix, simType,
                                       np.round(mu * 1000, 1),
                                       np.round(eps * 1000, 1))
-indicesPath = '../observables/%s/' % srcPostfix
 obsName = ''
 gridPostfix = ''
 N = 1
@@ -76,7 +75,7 @@ cpyBuffer = gridPostfix
 gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
-gridFile = 'grid/grid%s.txt' % gridPostfix
+gridFile = '%s/grid/grid%s.txt' % (resDir, gridPostfix)
 gfp = open(gridFile, 'r')
 bounds = []
 coord = []
@@ -95,7 +94,7 @@ f = X.flatten()
 g = f
 obsIdx0 = 0
 obsIdx1 = 0
-ccfPath = '../ccf/%s/' % srcPostfix
+ccfPath = '../results/%s/' % srcPostfix
 ccfPostfix = '_%s_%s_%s_%s_mu%04d_eps%04d' \
              % (fieldsDef[obsIdx0][2], indicesName[obsIdx0][1],
                 fieldsDef[obsIdx1][2], indicesName[obsIdx1][1],
@@ -109,13 +108,13 @@ for lag in np.arange(tauDimRng.shape[0]):
     postfix = "%s_tau%03d" % (gridPostfix, tauDim * 1000)
 
     print 'Readig spectrum...'
-    EigValFile = 'spectrum/eigval/eigval_nev%d%s.txt' % (nev, postfix)
-    EigVecFile = 'spectrum/eigvec/eigvec_nev%d%s.txt' % (nev, postfix)
-    EigValAdjointFile = 'spectrum/eigval/eigvalAdjoint_nev%d%s.txt' \
-                        % (nev, postfix)
-    EigVecAdjointFile = 'spectrum/eigvec/eigvecAdjoint_nev%d%s.txt' \
-                        % (nev, postfix)
-    statDist = np.loadtxt('transitionMatrix/initDist%s.txt' % postfix)
+    EigValFile = '%s/eigval/eigval_nev%d%s.txt' % (specDir, nev, postfix)
+    EigVecFile = '%s/eigvec/eigvec_nev%d%s.txt' % (specDir, nev, postfix)
+    EigValAdjointFile = '%s/eigval/eigvalAdjoint_nev%d%s.txt' \
+                        % (specDir, nev, postfix)
+    EigVecAdjointFile = '%s/eigvec/eigvecAdjoint_nev%d%s.txt' \
+                        % (specDir, nev, postfix)
+    statDist = np.loadtxt('%s/transitionMatrix/initDist%s.txt' % (resDir, postfix))
 #     statDist[statDist < alpha] = 0.
     eigvalRaw = np.loadtxt(EigValFile)
     eigvalAdjointRaw = np.loadtxt(EigValAdjointFile)
@@ -177,7 +176,7 @@ for lag in np.arange(tauDimRng.shape[0]):
     for ev in np.arange(nev):
         norm = np.sum(np.conjugate(eigvecAdjoint[ev]) * statDist \
                       * eigvec[ev])
-        eigvecAdjoint[ev] = eigvecAdjoint[ev] / np.conjugate(norm)
+        eigvecAdjoint[ev] /= np.conjugate(norm)
 
     # Get generator eigenvalues
     eigvalGen = (np.log(np.abs(eigval)) + np.angle(eigval)*1j) / tauConv
@@ -208,8 +207,8 @@ for lag in np.arange(tauDimRng.shape[0]):
     #          ylim[0] + (ylim[1] - ylim[0])*0.04,
     #          r'$\mu = %.2f$' % (mu,),
     #          fontsize=atplot.fs_latex)
-    # fig.savefig('spectrum/eigval/figs/eigval_nev%d%s.%s' \
-    #             % (nev, postfix, atplot.figFormat),
+    # fig.savefig('%s/spectrum/eigval/eigval_nev%d%s.%s' \
+    #             % (plotDir, nev, postfix, atplot.figFormat),
     #             bbox_inches='tight', dpi=atplot.dpi)
         
     
@@ -246,8 +245,8 @@ for lag in np.arange(tauDimRng.shape[0]):
         plt.setp(cbar.ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
         plt.setp(ax.get_xticklabels(), fontsize=atplot.fs_xticklabels)
         plt.setp(ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
-        fig.savefig('spectrum/eigvec/figs/eigvecReal_nev%d_ev%03d%s.%s' \
-                    % (nev, k+1, postfix, atplot.figFormat),
+        fig.savefig('%s/spectrum/eigvec/eigvecReal_nev%d_ev%03d%s.%s' \
+                    % (plotDir, nev, k+1, postfix, atplot.figFormat),
                     bbox_inches='tight', dpi=atplot.dpi)
 
         if plotImag & (eigval[k].imag != 0):
@@ -280,8 +279,8 @@ for lag in np.arange(tauDimRng.shape[0]):
             plt.setp(cbar.ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
             plt.setp(ax.get_xticklabels(), fontsize=atplot.fs_xticklabels)
             plt.setp(ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
-            fig.savefig('spectrum/eigvec/figs/eigvecImag_nev%d_ev%03d%s.%s' \
-                        % (nev, k, postfix, atplot.figFormat),
+            fig.savefig('%s/spectrum/eigvec/eigvecImag_nev%d_ev%03d%s.%s' \
+                        % (plotDir, nev, k, postfix, atplot.figFormat),
                         bbox_inches='tight', dpi=atplot.dpi)
 
  
@@ -318,9 +317,8 @@ for lag in np.arange(tauDimRng.shape[0]):
             # ax.set_title("Real part of the Koopman eigenvector %d" \
             #              % (k+1,),
             #              fontsize=atplot.fs_default)
-            fig.savefig('spectrum/eigvec/figs/eigvecAdjointReal' \
-                        + '_nev%d_ev%03d%s.%s' \
-                        % (nev, k+1, postfix, atplot.figFormat),
+            fig.savefig('%s/spectrum/eigvec/eigvecAdjointReal_nev%d_ev%03d%s.%s' \
+                        % (plotDir, nev, k+1, postfix, atplot.figFormat),
                         bbox_inches='tight', dpi=atplot.dpi)
 
             if plotImag & (eigval[k].imag != 0):
@@ -353,9 +351,8 @@ for lag in np.arange(tauDimRng.shape[0]):
                          fontsize=atplot.fs_yticklabels)
                 plt.setp(ax.get_xticklabels(), fontsize=atplot.fs_xticklabels)
                 plt.setp(ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
-                fig.savefig('spectrum/eigvec/figs/eigvecAdjointImag' \
-                            + '_nev%d_ev%03d%s.%s' \
-                            % (nev, k, postfix, atplot.figFormat),
+                fig.savefig('%s/spectrum/eigvec/eigvecAdjointImag_nev%d_ev%03d%s.%s' \
+                            % (plotDir, nev, k, postfix, atplot.figFormat),
                             bbox_inches='tight', dpi=atplot.dpi)
 
 if plotCCF:
@@ -372,10 +369,10 @@ if plotCCF:
 
 
     # Get reconstructed cross correlation 
-    comp = np.arange(1, 5)
-    #comp = np.arange(1, 12)
+    #    comp = np.arange(1, 5)
+    #comp = np.arange(1, 7)
     #comp = np.arange(1, 9)
-    #comp = np.arange(1, 13)
+    comp = np.arange(1, 13)
     nComponents = comp.shape[0]+1
 
     componentsCCF = np.zeros((nComponents-1, lags.shape[0]), dtype=complex)
@@ -386,13 +383,13 @@ if plotCCF:
         ev = comp[k]
         weights[k] = (f * statDist * np.conjugate(eigvecAdjoint[ev])).sum() \
                      * (eigvec[ev] * statDist * np.conjugate(g)).sum()
-        if weights[k].real < 0:
-            weights[k] *= -1
-        componentsCCF[k] = np.exp(eigvalGen[ev]*lags) * np.abs(weights[k])
+#        if weights[k].real < 0:
+#            weights[k] *= -1
+        componentsCCF[k] = np.exp(eigvalGen[ev]*lags) * weights[k]
         componentsPower[k] = -eigvalGen[ev].real * np.abs(weights[k].real) \
                              / ((angFreq - eigvalGen[ev].imag)**2 \
                                 + eigvalGen[ev].real**2)
-    ccfRec = componentsCCF.sum(0).real
+    ccfRec = componentsCCF.sum(0)
     ccfRec /= ccfRec[0]
     powerRec = componentsPower.sum(0).real
     powerRec /= powerRec.sum()
@@ -407,8 +404,8 @@ if plotCCF:
     ax.set_ylabel(r'$\tilde C_{x, x}(t)$', fontsize=atplot.fs_latex)
     plt.setp(ax.get_xticklabels(), fontsize=atplot.fs_xticklabels)
     plt.setp(ax.get_yticklabels(), fontsize=atplot.fs_yticklabels)
-    fig.savefig('spectrum/ccf/ccf_xx_nev%d%s.%s' \
-                % (nev, postfix, atplot.figFormat),
+    fig.savefig('%s/spectrum/ccf/ccf_xx_nev%d%s.%s' \
+                % (plotDir, nev, postfix, atplot.figFormat),
                 bbox_inches='tight', dpi=atplot.dpi)
 
     # PLot 3d
@@ -509,6 +506,6 @@ if plotCCF:
     #ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 0.))
     #ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 0.))
     #ax.grid(False)
-    fig.savefig('spectrum/ccf/eigPerio%s.%s' \
-                % (postfix, atplot.figFormat), bbox_inches='tight',
-                dpi=atplot.dpi)
+    fig.savefig('%s/spectrum/ccf/eigPerio%s.%s' \
+                % (plotDir, postfix, atplot.figFormat),
+                bbox_inches='tight', dpi=atplot.dpi)
