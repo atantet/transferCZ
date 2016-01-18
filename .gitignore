@@ -33,6 +33,7 @@
 
 # Backups
 *~
+.DS_Store
 
 # Results and data
 results/
