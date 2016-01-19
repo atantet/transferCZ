@@ -22,9 +22,13 @@ nino3 = ('Eastern', 'nino3')
 nino4 = ('Western', 'nino4')
 
 #mu = 2.5
+#comp = np.arange(1, 5)
 #mu = 2.8
-mu = 2.9
-#mu = 3.5
+#comp = np.arange(1, 7)
+#mu = 2.9
+#comp = np.arange(1, 9)
+mu = 3.5
+comp = np.arange(1, 13)
 eps = 0.05
 indicesName = [nino3, nino4]
 fieldsDef = [field_T, field_h]
@@ -44,14 +48,14 @@ tauDimRng = np.array([3.])
 
 nev = 50
 alpha = 0.0
-#nevPlot = 0
-nevPlot = 5
+nevPlot = 0
+#nevPlot = 6
 #plotAdjoint = False
 plotAdjoint = True
 plotImag = False
 #plotImag = True
-normEig = False
-#normEig = True
+#normEig = False
+normEig = True
 #plotCCF = False
 plotCCF = True
 xminEigval = -1.2
@@ -119,11 +123,11 @@ for lag in np.arange(tauDimRng.shape[0]):
     eigvalRaw = np.loadtxt(EigValFile)
     eigvalAdjointRaw = np.loadtxt(EigValAdjointFile)
     eigvalRaw = eigvalRaw[:, 0] + eigvalRaw[:, 1]*1j
-    eigvalAdjointRaw = eigvalAdjointRaw[:, 0] + eigvalAdjointRaw[:, 1]*1j
+    eigvalAdjointRaw = eigvalAdjointRaw[:, 0] + eigvalAdjointRaw[:, 1]*1j  # P = E^{-1} \Lambda E
     eigvecRaw = np.loadtxt(EigVecFile)
     eigvecAdjointRaw = np.loadtxt(EigVecAdjointFile)
-    eigvecRaw = eigvecRaw[::2] + eigvecRaw[1::2]*1j
-    eigvecAdjointRaw = eigvecAdjointRaw[::2] - eigvecAdjointRaw[1::2]*1j
+    eigvecRaw = eigvecRaw[::2] + eigvecRaw[1::2]*1j                        
+    eigvecAdjointRaw = eigvecAdjointRaw[::2] + eigvecAdjointRaw[1::2]*1j   #Q = F^{-1} \Lambda^* F => E^{-1} = D(\pi) F^*
     eigvec = np.zeros((nev, N), dtype=complex)
     eigvecAdjoint = np.zeros((nev, N), dtype=complex)
     eigval = np.zeros((nev,), dtype=complex)
@@ -369,10 +373,6 @@ if plotCCF:
 
 
     # Get reconstructed cross correlation 
-    #    comp = np.arange(1, 5)
-    #comp = np.arange(1, 7)
-    #comp = np.arange(1, 9)
-    comp = np.arange(1, 13)
     nComponents = comp.shape[0]+1
 
     componentsCCF = np.zeros((nComponents-1, lags.shape[0]), dtype=complex)
@@ -381,15 +381,14 @@ if plotCCF:
     weights = np.zeros((nComponents-1,), dtype=complex)
     for k in np.arange(comp.shape[0]):
         ev = comp[k]
-        weights[k] = (f * statDist * np.conjugate(eigvecAdjoint[ev])).sum() \
-                     * (eigvec[ev] * statDist * np.conjugate(g)).sum()
-#        if weights[k].real < 0:
-#            weights[k] *= -1
-        componentsCCF[k] = np.exp(eigvalGen[ev]*lags) * weights[k]
-        componentsPower[k] = -eigvalGen[ev].real * np.abs(weights[k].real) \
-                             / ((angFreq - eigvalGen[ev].imag)**2 \
-                                + eigvalGen[ev].real**2)
-    ccfRec = componentsCCF.sum(0)
+        weights[k] = (((f * statDist * np.conjugate(eigvecAdjoint[ev])).sum() \
+                     * (eigvec[ev] * statDist * np.conjugate(g)).sum())).real
+        if weights[k].real < 0:
+            weights[k] *= -1
+        componentsCCF[k] = np.exp(eigvalGen[ev] * lags) * weights[k]
+        componentsPower[k] = weights[k] * (-eigvalGen[ev].real * 2) \
+                             / ((angFreq + eigvalGen[ev].imag)**2 + eigvalGen[ev].real**2)
+    ccfRec = componentsCCF.sum(0).real
     ccfRec /= ccfRec[0]
     powerRec = componentsPower.sum(0).real
     powerRec /= powerRec.sum()

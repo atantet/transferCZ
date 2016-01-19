@@ -7,8 +7,6 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <libconfig.h++>
-#include <arpack++/arlnsmat.h>
-#include <arpack++/arlsnsym.h>
 #include <ATSuite/transferOperator.hpp>
 #include <ATSuite/transferSpectrum.hpp>
 
@@ -54,15 +52,15 @@ const struct fieldDef field_T = {2, "T"};
 
 // Paths
 const char prefix[] = "zc_1eof_";
-const char indexDir[] = "../observables/";
+const char resDir[] = "../results/";
 
 // Simulation parametrs
 const size_t nYears = 500;
 const double sampFreq = 5.833333333333333;
 const size_t nSeeds = 9;
 
-// Arpack configuration class
-configAR cfgAR("LM");
+// Arpack configuration structure
+configAR cfgAR = defaultCfgAR;
 
 // Global variables used for configuration 
 Config cfg;
@@ -142,19 +140,21 @@ int main(int argc, char * argv[])
     // Get file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
     sprintf(forwardTransitionFileName, \
-	    "../results/transitionMatrix/forwardTransition%s.coo", postfix);
+	    "%s/transitionMatrix/forwardTransition%s.coo", resDir, postfix);
     sprintf(backwardTransitionFileName,
-	    "../results/transitionMatrix/backwardTransition%s.coo", postfix);
-    sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
-    sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
-    sprintf(EigValForwardFileName, "../results/spectrum/eigval/eigval_nev%d%s.txt",
-	    nev, postfix);
-    sprintf(EigVecForwardFileName, "../results/spectrum/eigvec/eigvec_nev%d%s.txt",
-	    nev, postfix);
-    sprintf(EigValBackwardFileName, "../results/spectrum/eigval/eigvalAdjoint_nev%d%s.txt",
-	    nev, postfix);
-    sprintf(EigVecBackwardFileName, "../results/spectrum/eigvec/eigvecAdjoint_nev%d%s.txt",
-	    nev, postfix);
+	    "%s/transitionMatrix/backwardTransition%s.coo", resDir, postfix);
+    sprintf(initDistFileName, "%s/transitionMatrix/initDist%s.txt",
+	    resDir, postfix);
+    sprintf(finalDistFileName, "%s/transitionMatrix/finalDist%s.txt",
+	    resDir, postfix);
+    sprintf(EigValForwardFileName, "%s/spectrum/eigval/eigval_nev%d%s.txt",
+	    resDir, nev, postfix);
+    sprintf(EigVecForwardFileName, "%s/spectrum/eigvec/eigvec_nev%d%s.txt",
+	    resDir, nev, postfix);
+    sprintf(EigValBackwardFileName, "%s/spectrum/eigval/eigvalAdjoint_nev%d%s.txt",
+	    resDir, nev, postfix);
+    sprintf(EigVecBackwardFileName, "%s/spectrum/eigvec/eigvecAdjoint_nev%d%s.txt",
+	    resDir, nev, postfix);
 
     // Read transfer operator
     std::cout << "Reading transfer operator..." << std::endl;
@@ -166,7 +166,7 @@ int main(int argc, char * argv[])
     transferOp->scanBackwardTransition(backwardTransitionFileName);
 
     // Filter and get left stochastic
-    transferOp->filter(tol);
+    //transferOp->filter(tol);
 
     // Solve eigen value problem with default configuration
     std::cout << "Solving eigen problem for the first " << nev << std::endl;

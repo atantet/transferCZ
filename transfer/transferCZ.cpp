@@ -63,6 +63,7 @@ struct fieldDef {
 // Paths
 const char prefix[] = "zc_1eof_";
 const char indexDir[] = "../data/observables/";
+const char resDir[] = "../results/";
 const size_t dimSeries = 5;
 
 // Units
@@ -216,7 +217,7 @@ int main(int argc, char * argv[])
     }
     // Define grid
     sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
-    sprintf(gridFileName, "../results/grid/grid%s.txt", gridPostfix);
+    sprintf(gridFileName, "%s/grid/grid%s.txt", resDir, gridPostfix);
     grid = new Grid(nx, xmin, xmax);
     // Print grid
     grid->printGrid(gridFileName, "%.12lf", true);
@@ -226,8 +227,8 @@ int main(int argc, char * argv[])
       // Open grid membership file
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
       sprintf(gridPostfixSeed, "_%s%s%s", srcPostfixSeed, obsName, gridCFG);
-      sprintf(gridMemFileName, "../results/transitionMatrix/gridMem%s.txt",
-	      gridPostfixSeed);
+      sprintf(gridMemFileName, "%s/transitionMatrix/gridMem%s.txt",
+	      resDir, gridPostfixSeed);
       if ((gridMemFile = fopen(gridMemFileName, "w")) == NULL){
 	fprintf(stderr, "Can't open %s for writing!\n", gridMemFileName);
 	return(EXIT_FAILURE);
@@ -277,11 +278,11 @@ int main(int argc, char * argv[])
     // Update file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
     sprintf(forwardTransitionFileName,
-	    "../results/transitionMatrix/forwardTransition%s.coo", postfix);
+	    "%s/transitionMatrix/forwardTransition%s.coo", resDir, postfix);
     sprintf(backwardTransitionFileName,
-	    "../results/transitionMatrix/backwardTransition%s.coo", postfix);
-    sprintf(initDistFileName, "../results/transitionMatrix/initDist%s.txt", postfix);
-    sprintf(finalDistFileName, "../results/transitionMatrix/finalDist%s.txt", postfix);
+	    "%s/transitionMatrix/backwardTransition%s.coo", resDir, postfix);
+    sprintf(initDistFileName, "%s/transitionMatrix/initDist%s.txt", resDir, postfix);
+    sprintf(finalDistFileName, "%s/transitionMatrix/finalDist%s.txt", resDir, postfix);
 
     // Get full membership matrix
     std::cout << "Getting full membership matrix from the list of membership vecotrs..."

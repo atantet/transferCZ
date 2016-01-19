@@ -1,7 +1,7 @@
 GSL_DIR := ../../../gslsp/src/
 INCDIR=-I$(GSL_DIR)
 LIBDIR=
-LIBS=-lgsl -lconfig++ -larpack -lsuperlu_5.1
+LIBS=-lgsl -lconfig++ -lopenblas -larpack
 
 CC=g++
 WARN=-Wall -Wformat=0
@@ -19,8 +19,11 @@ EXE=spectrumCZ
 
 all:$(EXE).out
 
-$(EXE).o:$(EXE).cpp $(GSL_SRC)
-	$(CC) -c $(CFLAGS) $(INCDIR) $(EXE).cpp $(GSL_SRC)
+$(GSL_DIR)/%.o:$(GSL_DIR)/%.c
+	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
+
+$(EXE).o:$(EXE).cpp 
+	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(EXE).out:$(EXE).o $(GSL_OBJ)
 	$(CC) $(LDFLAGS) -o $(EXE).out $(LIBDIR) $(EXE).o $(GSL_OBJ) $(LIBS)
