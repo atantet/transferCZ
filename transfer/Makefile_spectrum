@@ -1,5 +1,4 @@
-GSL_DIR := ../../../gslsp/src/
-INCDIR=-I$(GSL_DIR)
+INCDIR=
 LIBDIR=
 LIBS=-lgsl -lconfig++ -lopenblas -larpack
 
@@ -8,9 +7,6 @@ WARN=-Wall -Wformat=0
 CFLAGS=$(WARN) -pedantic-errors -O3
 LDFLAGSSTD=-undefined dynamic_lookup
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
-GSL_SRC := $(shell find $(GSL_DIR) -name "*.c")
-GSL_SRC := $(filter-out $(GSL_DIR)/test.c, $(GSL_SRC))
-GSL_OBJ := $(patsubst %.c, %.o, $(GSL_SRC))
 
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
@@ -19,17 +15,14 @@ EXE=spectrumCZ
 
 all:$(EXE).out
 
-$(GSL_DIR)/%.o:$(GSL_DIR)/%.c
-	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
-
 $(EXE).o:$(EXE).cpp 
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
-$(EXE).out:$(EXE).o $(GSL_OBJ)
-	$(CC) $(LDFLAGS) -o $(EXE).out $(LIBDIR) $(EXE).o $(GSL_OBJ) $(LIBS)
+$(EXE).out:$(EXE).o
+	$(CC) $(LDFLAGS) -o $(EXE).out $(LIBDIR) $(EXE).o $(LIBS)
 
 clean:
 	rm -f $(EXE).o $(EXE).out
 
 cleanall:
-	rm -f $(GSL_DIR)/*.o $(EXE).o $(EXE).out
+	rm -f $(EXE).o $(EXE).out
