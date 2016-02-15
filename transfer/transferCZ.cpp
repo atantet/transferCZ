@@ -3,11 +3,15 @@
 #include <cstdio>
 #include <cstring>
 #include <vector>
+#include <stdexcept>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_math.h>
 #include <libconfig.h++>
-#include <ATSuite/transferOperator.hpp>
+#include <ergoPack/transferOperator.hpp>
+
+using namespace libconfig;
+
 
 /** \file transferCZ.cpp
  *  \brief Get transition matrices and distributions for the Cane-Zebiak model.
@@ -31,12 +35,10 @@
  * Finally, the results are printed.
  */
 
-using namespace libconfig;
-
 
 // Declarations
 /** \brief User defined function to get parameters from a cfg file using libconfig. */
-int readConfig(const char *cfgFileNamePrefix);
+void readConfig(const char *cfgFileName);
 
 /** \briefCount number of lines in file. */
 size_t lineCount(FILE *fp);
@@ -78,29 +80,46 @@ const struct fieldDef field_T = {2, "T", delta_T};
 
 // Configuration 
 char cfgFileName[256];
-Config cfg;
+char srcPostfix[256], gridCFG[256], obsName[256], gridPostfix[256], gridFileName[256];
 std::string indicesName[DIM];
 struct fieldDef fieldsDef[DIM];
 double mu, eps;
 gsl_vector_uint *seedRng;
 size_t nSeeds;
 bool readGridMem;
+size_t N;
 double dt, spinupMonth;
 gsl_vector_uint *nx;
 gsl_vector *nSTDLow, *nSTDHigh;
 size_t nLags;
 gsl_vector *tauDimRng;
+char configFileName[256];       //!< Name of the configuration file
+bool stationary;                //!< Whether the problem is stationary or not
+
 
 
 // Main program
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (readConfig("transferCZ")) {
-    std::cerr << "Error reading config file " << argv[0] << ".cfg"
-	      << std::endl;
-    return(EXIT_FAILURE);
-  }
+  if (argc < 2)
+    {
+      std::cout << "Enter path to configuration file:" << std::endl;
+      std::cin >> configFileName;
+    }
+  else
+    {
+      strcpy(configFileName, argv[1]);
+    }
+  try
+   {
+     readConfig(configFileName);
+    }
+  catch (...)
+    {
+      std::cerr << "Error reading configuration file" << std::endl;
+      return(EXIT_FAILURE);
+    }
 
   // Declarations
   // Simulation parameters
@@ -108,12 +127,8 @@ int main(int argc, char * argv[])
   size_t spinup = (size_t) (spinupMonth * sampFreq);
 
   // Names and Files
-  char obsName[256], srcPostfix[256], srcPostfixSeed[256], postfix[256],
-    gridPostfix[256], gridCFG[256], gridPostfixSeed[256], cpyBuffer[256];
-  char gridMemFileName[256],
-    forwardTransitionFileName[256], backwardTransitionFileName[256],
-    initDistFileName[256], finalDistFileName[256];
-  char gridFileName[256];
+  char srcPostfixSeed[256], postfix[256], gridPostfixSeed[256];
+  char gridMemFileName[256], forwardTransitionFileName[256], initDistFileName[256];
   FILE *gridMemFile;
   FILE *indexFile[DIM];
   char indexPath[DIM][256];
@@ -138,29 +153,13 @@ int main(int argc, char * argv[])
   // Grid related
   Grid *grid;
 
-  // Define grid name
-  sprintf(srcPostfix, "%smu%04d_eps%04d", prefix, (int) (mu*1000),
-	  (int) (eps*1000));
-  sprintf(gridCFG, "");
-  for (size_t d = 0; d < DIM; d++) {
-    strcpy(cpyBuffer, gridCFG);
-    sprintf(gridCFG, "%s_n%dl%dh%d", cpyBuffer,
-	    gsl_vector_uint_get(nx, d),
-	    (int) gsl_vector_get(nSTDLow, d),
-	    (int) gsl_vector_get(nSTDHigh, d));
-  }
-
   // Get membership vector
   if (! readGridMem) {
     for (size_t seed = 0; seed < nSeeds; seed++) {
       
       // Read observable
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
-      strcpy(obsName, "");
       for (size_t d = 0; d < DIM; d++){
-	strcpy(cpyBuffer, obsName);
-	sprintf(obsName, "%s_%s_%s", cpyBuffer, fieldsDef[d].shortName,
-		indicesName[d].c_str());
 	sprintf(indexPath[d], "%s/%s/%s.txt", indexDir, srcPostfixSeed,
 		indicesName[d].c_str());
 	// Open observable file d
@@ -216,9 +215,7 @@ int main(int argc, char * argv[])
 		     * gsl_vector_get(statesSTD, d));
     }
     // Define grid
-    sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
-    sprintf(gridFileName, "%s/grid/grid%s.txt", resDir, gridPostfix);
-    grid = new Grid(nx, xmin, xmax);
+    grid = new RegularGrid(nx, xmin, xmax);
     // Print grid
     grid->printGrid(gridFileName, "%.12lf", true);
 
@@ -227,7 +224,7 @@ int main(int argc, char * argv[])
       // Open grid membership file
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
       sprintf(gridPostfixSeed, "_%s%s%s", srcPostfixSeed, obsName, gridCFG);
-      sprintf(gridMemFileName, "%s/transitionMatrix/gridMem%s.txt",
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.txt",
 	      resDir, gridPostfixSeed);
       if ((gridMemFile = fopen(gridMemFileName, "w")) == NULL){
 	fprintf(stderr, "Can't open %s for writing!\n", gridMemFileName);
@@ -247,66 +244,68 @@ int main(int argc, char * argv[])
     // Free
     gsl_vector_free(xmin);
     gsl_vector_free(xmax);
-    for (size_t seed = 0; seed < nSeeds; seed++){
+    for (size_t seed = 0; seed < nSeeds; seed++)
       gsl_matrix_free(statesSeeds[seed]);
-    }
+    delete grid;
   }
-  else {
-    // Create empty grid
-    grid = new Grid(nx);
-      
-    // Read membership vectors
-    for (size_t seed = 0; seed < nSeeds; seed++) {
-      gridMemSeeds[seed] = gsl_vector_uint_alloc(gsl_vector_uint_get(ntSeeds,
-								     seed));
-      // Open grid membership file to read
-      std::cout << "Reading grid membership vector..." << std::endl;
-      if ((gridMemFile = fopen(gridMemFileName, "r")) == NULL){
-	fprintf(stderr, "Can't open %s for writing!\n", gridMemFileName);
-	return(EXIT_FAILURE);
+  else
+    {
+      // Read membership vectors
+      for (size_t seed = 0; seed < nSeeds; seed++) {
+	// Open grid membership file to read
+	sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
+	sprintf(gridPostfixSeed, "_%s%s%s", srcPostfixSeed, obsName, gridCFG);
+	sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.txt",
+		resDir, gridPostfixSeed);
+	std::cout << "Reading grid membership vector for seed " << seed
+		  << " at " << gridMemFileName << std::endl;
+	if ((gridMemFile = fopen(gridMemFileName, "r")) == NULL){
+	  fprintf(stderr, "Can't open %s for reading!\n", gridMemFileName);
+	  return(EXIT_FAILURE);
+	}
+
+	// Allocate grid membership vector for seed
+	count = lineCount(gridMemFile);
+	fseek(gridMemFile, 0, SEEK_SET);
+	gridMemSeeds[seed] = gsl_vector_uint_alloc(count);
+
+	gsl_vector_uint_fscanf(gridMemFile, gridMemSeeds[seed]);
+	fclose(gridMemFile);
       }
-      gsl_vector_uint_fscanf(gridMemFile, gridMemSeeds[seed]);
-      fclose(gridMemFile);
     }
-  }
 
   // Get transition matrices for different lags
-  for (size_t lag = 0; lag < nLags; lag++){
-    tauDim = gsl_vector_get(tauDimRng, lag);
-    tauStep = (size_t) (tauDim * sampFreq);
+  for (size_t lag = 0; lag < nLags; lag++)
+    {
+      tauDim = gsl_vector_get(tauDimRng, lag);
+      tauStep = (size_t) (tauDim * sampFreq);
 
-    // Update file names
-    sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
-    sprintf(forwardTransitionFileName,
-	    "%s/transitionMatrix/forwardTransition%s.coo", resDir, postfix);
-    sprintf(backwardTransitionFileName,
-	    "%s/transitionMatrix/backwardTransition%s.coo", resDir, postfix);
-    sprintf(initDistFileName, "%s/transitionMatrix/initDist%s.txt", resDir, postfix);
-    sprintf(finalDistFileName, "%s/transitionMatrix/finalDist%s.txt", resDir, postfix);
+      // Update file names
+      sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
+      sprintf(forwardTransitionFileName,
+	      "%s/transfer/forwardTransition/forwardTransition%s.coo", resDir, postfix);
+      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt", resDir, postfix);
 
-    // Get full membership matrix
-    std::cout << "Getting full membership matrix from the list of membership vecotrs..."
-	      << std::endl;
-    gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauStep);
+      // Get full membership matrix
+      std::cout << "Getting full membership matrix from the list of membership vectors..."
+		<< std::endl;
+      gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauStep);
 
-    // Get transition matrices as CSR
-    std::cout << "Building transfer operator..." << std::endl;
-    transferOp = new transferOperator(gridMemMatrix, grid->N);
+      // Get transition matrices as CSR
+      std::cout << "Building transfer operator..." << std::endl;
+      transferOp = new transferOperator(gridMemMatrix, N, stationary);
     
-    // Write transition matrix as CSR
-    std::cout << "Writing transfer operator..." << std::endl;
-    transferOp->printForwardTransition(forwardTransitionFileName, "%.12lf");
-    transferOp->printBackwardTransition(backwardTransitionFileName, "%.12lf");
-    transferOp->printInitDist(initDistFileName, "%.12lf");
-    transferOp->printFinalDist(finalDistFileName, "%.12lf");
+      // Write transition matrix as CSR
+      std::cout << "Writing transfer operator..." << std::endl;
+      transferOp->printForwardTransition(forwardTransitionFileName, "%.12lf");
+      transferOp->printInitDist(initDistFileName, "%.12lf");
 	
-    // Free
-    delete transferOp;
-    gsl_matrix_uint_free(gridMemMatrix);
-  }
-
+      // Free
+      delete transferOp;
+      gsl_matrix_uint_free(gridMemMatrix);
+    }
+  
   // Free
-  delete grid;
   gsl_vector_uint_free(nx);
   gsl_vector_free(nSTDLow);
   gsl_vector_free(nSTDHigh);
@@ -318,28 +317,18 @@ int main(int argc, char * argv[])
 }
 
 // Definitions
-int
-readConfig(const char *cfgFileNamePrefix)
+void
+readConfig(const char *cfgFileName)
 {
-  char cfgFileName[256];
-  sprintf(cfgFileName, "cfg/%s.cfg", cfgFileNamePrefix);
-
+  Config cfg;
+  char cpyBuffer[256];
+  
   // Read the file. If there is an error, report it and exit.
   try {
     std::cout << "Reading config file " << cfgFileName << std::endl;
     cfg.readFile(cfgFileName);
-  }
-  catch(const FileIOException &fioex) {
-    std::cerr << "I/O error while reading configuration file." << std::endl;
-    return(EXIT_FAILURE);
-  }
-  catch(const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
-    return(EXIT_FAILURE);
-  }
-
-  try {
+    
+    std::cout.precision(6);
     std::cout << "Settings:" << std::endl;
     
     // Get caseDef settings
@@ -355,7 +344,7 @@ readConfig(const char *cfgFileNamePrefix)
 	fieldsDef[d] = field_T;
       else {
 	std::cerr << "Wrong field name for dimension " << d << std::endl;
-	return(EXIT_FAILURE);
+	throw std::exception();
       }	
       std::cout << "indicesName[" << d << "]: "
 		<< indicesName[d] << std::endl;
@@ -389,10 +378,12 @@ readConfig(const char *cfgFileNamePrefix)
     const Setting &nSTDLowSetting = cfg.lookup("grid.nSTDLow");
     const Setting &nSTDHighSetting = cfg.lookup("grid.nSTDHigh");
     nx = gsl_vector_uint_alloc(DIM);
+    N = 1;
     nSTDLow = gsl_vector_alloc(DIM);
     nSTDHigh = gsl_vector_alloc(DIM);
     for (size_t d = 0; d < DIM; d++) {
       gsl_vector_uint_set(nx, d, nxSetting[d]);
+      N *= gsl_vector_uint_get(nx, d);
       gsl_vector_set(nSTDLow, d, nSTDLowSetting[d]);
       gsl_vector_set(nSTDHigh, d, nSTDHighSetting[d]);
       std::cout << "Grid definition (nSTDLow, nSTDHigh, n):" << std::endl;
@@ -406,26 +397,69 @@ readConfig(const char *cfgFileNamePrefix)
 
 
     // Get transition settings
-    const Setting &tauDimRngSetting = cfg.lookup("transition.tauDimRng");
+    const Setting &tauDimRngSetting = cfg.lookup("transfer.tauDimRng");
     nLags = tauDimRngSetting.getLength();
     tauDimRng = gsl_vector_alloc(nLags);
 
-    std::cout << std::endl << "---transition---" << std::endl;
+    std::cout << std::endl << "---transfer---" << std::endl;
     std::cout << "tauDimRng = {";
     for (size_t lag = 0; lag < nLags; lag++) {
       gsl_vector_set(tauDimRng, lag, tauDimRngSetting[lag]);
       std::cout << gsl_vector_get(tauDimRng, lag) << ", ";
     }
     std::cout << "}" << std::endl;
+
+    stationary = cfg.lookup("transfer.stationary");
+    std::cout << "Is stationary: " << stationary << std::endl;
+
+    
+    std::cout << std::endl;
+
+    
+    // Define grid name
+    sprintf(srcPostfix, "%smu%04d_eps%04d", prefix, (int) (mu*1000),
+	    (int) (eps*1000));
+    sprintf(gridCFG, "");
+    strcpy(obsName, "");
+    for (size_t d = 0; d < DIM; d++)
+      {
+	strcpy(cpyBuffer, obsName);
+	sprintf(obsName, "%s_%s_%s", cpyBuffer, fieldsDef[d].shortName,
+		indicesName[d].c_str());
+	strcpy(cpyBuffer, gridCFG);
+	sprintf(gridCFG, "%s_n%dl%dh%d", cpyBuffer,
+		gsl_vector_uint_get(nx, d),
+		(int) gsl_vector_get(nSTDLow, d),
+		(int) gsl_vector_get(nSTDHigh, d));
+      }
+
+    sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
+    sprintf(gridFileName, "%s/grid/grid%s.txt", resDir, gridPostfix);
+
   }
   catch(const SettingNotFoundException &nfex) {
     std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
-    return(EXIT_FAILURE);
+    throw nfex;
   }
-
-  std::cout << std::endl;
-
-  return 0;
+  catch(const FileIOException &fioex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw fioex;
+  }
+  catch(const ParseException &pex) {
+    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+              << " - " << pex.getError() << std::endl;
+    throw pex;
+  }
+  catch(const SettingTypeException &stex) {
+    std::cerr << "Setting type exception." << std::endl;
+    throw stex;
+  }
+  catch(const std::exception &ex) {
+    std::cerr << "Standard exception." << std::endl;
+    throw ex;
+  }
+  
+  return;
 }
 
 

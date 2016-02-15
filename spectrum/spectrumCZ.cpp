@@ -1,14 +1,16 @@
 #define DIM 2
 #include <cstdlib>
 #include <cstdio>
+#include <stdexcept>
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <stdexcept>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <libconfig.h++>
-#include <ATSuite/transferOperator.hpp>
-#include <ATSuite/transferSpectrum.hpp>
+#include <ergoPack/transferOperator.hpp>
+#include <ergoPack/transferSpectrum.hpp>
 
 
 /** \file spectrumCZ.cpp
@@ -25,10 +27,8 @@ using namespace libconfig;
 
 
 // Declarations
-/**
- * User defined function to get parameters from config file cfg/transferCZ.cfg using libconfig.
- */
-int readConfig(const char *cfgFileNamePrefix);
+/** \brief User defined function to get parameters from a cfg file using libconfig. */
+void readConfig(const char *cfgFileName);
 
 /**
  * Structure defining a field.
@@ -59,9 +59,6 @@ const size_t nYears = 500;
 const double sampFreq = 5.833333333333333;
 const size_t nSeeds = 9;
 
-// Arpack configuration structure
-configAR cfgAR = defaultCfgAR;
-
 // Global variables used for configuration 
 Config cfg;
 std::string indicesName[DIM];
@@ -73,18 +70,36 @@ gsl_vector *nSTDLow, *nSTDHigh;
 size_t nLags;
 gsl_vector *tauDimRng;
 int nev;
-int minNumberStates;
+configAR config;                //!< Configuration data for the eigen problem
+char configFileName[256];       //!< Name of the configuration file
+bool stationary;                //!< Whether the problem is stationary or not
+bool getForwardEigenvectors;    //!< Whether to get forward eigenvectors
+bool getBackwardEigenvectors;   //!< Whether to get backward eigenvectors
+bool makeBiorthonormal;         //!< Whether to make eigenvectors biorthonormal
 
 
 // Main program
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (readConfig("transferCZ")) {
-    std::cerr << "Error reading config file " << "transferCZ" << "."
-	      << std::endl;
-    return(EXIT_FAILURE);
-  }
+  if (argc < 2)
+    {
+      std::cout << "Enter path to configuration file:" << std::endl;
+      std::cin >> configFileName;
+    }
+  else
+    {
+      strcpy(configFileName, argv[1]);
+    }
+  try
+    {
+      readConfig(configFileName);
+    }
+  catch (...)
+    {
+      std::cerr << "Error reading configuration file" << std::endl;
+      return(EXIT_FAILURE);
+    }
 
   
   // Declarations
@@ -94,17 +109,10 @@ int main(int argc, char * argv[])
   // Lags
   double tauDim;
 
-  // Filtering
-  double tol;
-
-  // Eigen problem
-  int nconv;
-
   // Names and Files
   char obsName[256], srcPostfix[256], gridPostfix[256], cpyBuffer[256],
     postfix[256];
-  char forwardTransitionFileName[256], backwardTransitionFileName[256],
-    initDistFileName[256], finalDistFileName[256];
+  char forwardTransitionFileName[256], initDistFileName[256];
 
   char EigValForwardFileName[256], EigVecForwardFileName[256],
     EigValBackwardFileName[256], EigVecBackwardFileName[256];
@@ -134,50 +142,82 @@ int main(int argc, char * argv[])
   // Scan transition matrices and distributions for different lags
   for (size_t lag = 0; lag < nLags; lag++){
     tauDim = gsl_vector_get(tauDimRng, lag);
-    tol = minNumberStates * 1. / ((nYears*sampFreq*12 - tauDim)*nSeeds);
-    std::cout << "alpha = " << tol << std::endl;
 
     // Get file names
     sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
     sprintf(forwardTransitionFileName, \
-	    "%s/transitionMatrix/forwardTransition%s.coo", resDir, postfix);
-    sprintf(backwardTransitionFileName,
-	    "%s/transitionMatrix/backwardTransition%s.coo", resDir, postfix);
-    sprintf(initDistFileName, "%s/transitionMatrix/initDist%s.txt",
+	    "%s/transfer/forwardTransition/forwardTransition%s.coo", resDir, postfix);
+    sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt",
 	    resDir, postfix);
-    sprintf(finalDistFileName, "%s/transitionMatrix/finalDist%s.txt",
-	    resDir, postfix);
-    sprintf(EigValForwardFileName, "%s/spectrum/eigval/eigval_nev%d%s.txt",
+    sprintf(EigValForwardFileName, "%s/spectrum/eigval/eigvalForward_nev%d%s.txt",
 	    resDir, nev, postfix);
-    sprintf(EigVecForwardFileName, "%s/spectrum/eigvec/eigvec_nev%d%s.txt",
+    sprintf(EigVecForwardFileName, "%s/spectrum/eigvec/eigvecForward_nev%d%s.txt",
 	    resDir, nev, postfix);
-    sprintf(EigValBackwardFileName, "%s/spectrum/eigval/eigvalAdjoint_nev%d%s.txt",
+    sprintf(EigValBackwardFileName, "%s/spectrum/eigval/eigvalBackward_nev%d%s.txt",
 	    resDir, nev, postfix);
-    sprintf(EigVecBackwardFileName, "%s/spectrum/eigvec/eigvecAdjoint_nev%d%s.txt",
+    sprintf(EigVecBackwardFileName, "%s/spectrum/eigvec/eigvecBackward_nev%d%s.txt",
 	    resDir, nev, postfix);
 
     // Read transfer operator
     std::cout << "Reading transfer operator..." << std::endl;
-    transferOp = new transferOperator;
-    transferOp->N = N;
+    transferOp = new transferOperator(N, stationary);
     transferOp->scanInitDist(initDistFileName);
-    transferOp->scanFinalDist(finalDistFileName);
     transferOp->scanForwardTransition(forwardTransitionFileName);
-    transferOp->scanBackwardTransition(backwardTransitionFileName);
 
-    // Filter and get left stochastic
-    //transferOp->filter(tol);
+    // Get spectrum
+    try
+      {
+	// Solve eigen value problem with default configuration
+	transferSpec = new transferSpectrum(nev, transferOp, config);
 
-    // Solve eigen value problem with default configuration
-    std::cout << "Solving eigen problem for the first " << nev << std::endl;
-    transferSpec = new transferSpectrum(nev, transferOp);
-    nconv = transferSpec->getSpectrum();
-    std::cout << "Found " << nconv << "/" << (nev * 2) << " eigenvalues." << std::endl;
-
-    // Open destination files and write spectrum
-    std::cout << "Write spectrum..." << std::endl;
-    nconv = transferSpec->writeSpectrum(EigValForwardFileName, EigVecForwardFileName,
-					EigValBackwardFileName, EigVecBackwardFileName);
+	if (getForwardEigenvectors)
+	  {
+	    std::cout << "Solving eigen problem for forward transition matrix..." << std::endl;
+	    transferSpec->getSpectrumForward();
+	    std::cout << "Found " << transferSpec->EigProbForward.ConvergedEigenvalues()
+		      << "/" << nev << " eigenvalues." << std::endl;	      
+	  }
+	if (getBackwardEigenvectors)
+	  {
+	    std::cout << "Solving eigen problem for backward transition matrix..." << std::endl;
+	    transferSpec->getSpectrumBackward();
+	    std::cout << "Found " << transferSpec->EigProbBackward.ConvergedEigenvalues()
+		      << "/" << nev << " eigenvalues." << std::endl;
+	  }
+	if (makeBiorthonormal)
+	  {
+	    std::cout << "Making set of forward and backward eigenvectors biorthonormal..."
+		      << std::endl;
+	    transferSpec->makeBiorthonormal();
+	  }
+      }
+    catch (std::exception &ex)
+      {
+	std::cerr << "Error calculating spectrum: " << ex.what() << std::endl;
+	return EXIT_FAILURE;
+      }
+  
+    // Write spectrum 
+    try
+      {
+	if (getForwardEigenvectors)
+	  {
+	    std::cout << "Writing forward eigenvalues and eigenvectors..." << std::endl;
+	    transferSpec->writeSpectrumForward(EigValForwardFileName,
+					       EigVecForwardFileName);
+	  }
+	if (getBackwardEigenvectors)
+	  {
+	    std::cout << "Writing backward eigenvalues and eigenvectors..." << std::endl;
+	    transferSpec->writeSpectrumBackward(EigValBackwardFileName,
+						EigVecBackwardFileName);
+	  }
+      }
+    catch (std::exception &ex)
+      {
+	std::cerr << "Error writing spectrum: " << ex.what() << std::endl;
+	return EXIT_FAILURE;
+      }
 
     // Free
     delete transferOp;
@@ -189,28 +229,17 @@ int main(int argc, char * argv[])
 
 
 // Definitions
-int
-readConfig(const char *cfgFileNamePrefix)
+void
+readConfig(const char *cfgFileName)
 {
-  char cfgFileName[256];
-  sprintf(cfgFileName, "cfg/%s.cfg", cfgFileNamePrefix);
+  Config cfg;
 
   // Read the file. If there is an error, report it and exit.
   try {
     std::cout << "Reading config file " << cfgFileName << std::endl;
     cfg.readFile(cfgFileName);
-  }
-  catch(const FileIOException &fioex) {
-    std::cerr << "I/O error while reading configuration file." << std::endl;
-    return(EXIT_FAILURE);
-  }
-  catch(const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
-    return(EXIT_FAILURE);
-  }
-
-  try {
+    
+    std::cout.precision(6);
     std::cout << "Settings:" << std::endl;
     
     // Get caseDef settings
@@ -226,7 +255,7 @@ readConfig(const char *cfgFileNamePrefix)
 	fieldsDef[d] = field_T;
       else {
 	std::cerr << "Wrong field name for dimension " << d << std::endl;
-	return(EXIT_FAILURE);
+	throw std::exception();
       }	
       std::cout << "indicesName[" << d << "]: "
 		<< indicesName[d] << std::endl;
@@ -263,31 +292,93 @@ readConfig(const char *cfgFileNamePrefix)
     }
 
     // Get transition settings
-    const Setting &tauDimRngSetting = cfg.lookup("transition.tauDimRng");
+    const Setting &tauDimRngSetting = cfg.lookup("transfer.tauDimRng");
     nLags = tauDimRngSetting.getLength();
     tauDimRng = gsl_vector_alloc(nLags);
 
-    std::cout << std::endl << "---transition---" << std::endl;
+    std::cout << std::endl << "---transfer---" << std::endl;
     std::cout << "tauDimRng = {";
     for (size_t lag = 0; lag < nLags; lag++) {
       gsl_vector_set(tauDimRng, lag, tauDimRngSetting[lag]);
       std::cout << gsl_vector_get(tauDimRng, lag) << ", ";
     }
     std::cout << "}" << std::endl;
+
+    stationary = cfg.lookup("transfer.stationary");
+    std::cout << "Is stationary: " << stationary << std::endl;
+
+
+    // Get spectrum setting 
+    nev = cfg.lookup("spectrum.nev");
+    std::cout << std::endl << "---spectrum---" << std::endl;
+    // Get eigen problem configuration
+    config = defaultCfgAR;
+    if (cfg.exists("spectrum.which"))
+      {
+	strcpy(config.which, (const char *) cfg.lookup("spectrum.which"));
+      }
+    if (cfg.exists("spectrum.ncv"))
+      {
+	config.ncv = cfg.lookup("spectrum.ncv");
+      }
+    if (cfg.exists("spectrum.tol"))
+      {
+	config.tol = cfg.lookup("spectrum.tol");
+      }
+    if (cfg.exists("spectrum.maxit"))
+	{
+	  config.maxit = cfg.lookup("spectrum.maxit");
+	}
+    if (cfg.exists("spectrum.AutoShift"))
+	{
+	  config.AutoShift = (bool) cfg.lookup("spectrum.AutoShift");
+	}
+    std::cout << "nev: " << nev << std::endl;
+    std::cout << "which: " << config.which << std::endl;
+    std::cout << "ncv: " << config.ncv << std::endl;
+    std::cout << "tol: " << config.tol << std::endl;
+    std::cout << "maxit: " << config.maxit << std::endl;
+    std::cout << "AutoShift: " << config.AutoShift << std::endl;
+    std::cout << std::endl;
+
+    if (cfg.exists("spectrum.getForwardEigenvectors"))
+      {
+	getForwardEigenvectors = cfg.lookup("spectrum.getForwardEigenvectors");
+      }
+    if (cfg.exists("spectrum.getBackwardEigenvectors"))
+      {
+	getBackwardEigenvectors = cfg.lookup("spectrum.getBackwardEigenvectors");
+      }
+    if (cfg.exists("spectrum.makeBiorthonormal"))
+      {
+	makeBiorthonormal = cfg.lookup("spectrum.makeBiorthonormal");
+      }
+
+    
+    std::cout << std::endl;
+
   }
   catch(const SettingNotFoundException &nfex) {
     std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
-    return(EXIT_FAILURE);
+    throw nfex;
+  }
+  catch(const FileIOException &fioex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw fioex;
+  }
+  catch(const ParseException &pex) {
+    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+              << " - " << pex.getError() << std::endl;
+    throw pex;
+  }
+  catch(const SettingTypeException &stex) {
+    std::cerr << "Setting type exception." << std::endl;
+    throw stex;
+  }
+  catch(const std::exception &ex) {
+    std::cerr << "Standard exception." << std::endl;
+    throw ex;
   }
 
-  // Get spectrum setting 
-  nev = cfg.lookup("spectrum.nev");
-  minNumberStates = cfg.lookup("spectrum.minNumberStates");
-  std::cout << std::endl << "---spectrum---" << std::endl
-	    << "nev: " << nev << std::endl
-	    << "minNumberStates: " << minNumberStates << std::endl;
-
-  std::cout << std::endl;
-
-  return 0;
+  return ;
 }
