@@ -1,0 +1,35 @@
+# 
+# make file for u54
+#
+#source files
+SRC1=parameters.f
+SRC2=continue.f
+SRC3=operators.f
+SRC4=output.f
+SRC5=solve.f
+SRC6=basis.f
+COM=const.com coeff.com mat.com tau.com outfld.com
+# object files
+OBJ1=parameters.o
+OBJ2=continue.o
+OBJ3=operators.o
+OBJ4=output.o
+OBJ5=solve.o
+OBJ6=basis.o
+#
+# link (also link NAG libraries)
+blub:           $(OBJ1) $(OBJ2) $(OBJ3) $(OBJ4) $(OBJ5) $(OBJ6)
+	gfortran -g -r8 $(OBJ1) $(OBJ2) $(OBJ3) $(OBJ4) $(OBJ5) $(OBJ6) /usr/local/NAG/fll6a22dpl/lib/libnag_nag.a -o blub
+
+$(OBJ1):        $(SRC1) $(COM)
+	gfortran -g -r8 -c  $(SRC1) 
+$(OBJ2):        $(SRC2) $(COM)
+	gfortran -g -r8 -c $(SRC2) 
+$(OBJ3):        $(SRC3) $(COM)
+	gfortran -g -r8 -c  $(SRC3) 
+$(OBJ4):        $(SRC4) $(COM)
+	gfortran -g -r8 -c  $(SRC4) 
+$(OBJ5):        $(SRC5) $(COM)
+	gfortran -g -r8 -c  $(SRC5) 
+$(OBJ6):        $(SRC6) $(COM)
+	gfortran -g -r8 -c  $(SRC6) 

@@ -1,0 +1,4 @@
+cat fort.3 >> q.$1
+cat fort.7 >> p.$1
+rm fort.7
+rm fort.3
