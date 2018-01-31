@@ -12,13 +12,11 @@ configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 
-timeFreq = 0.35 / 0.060 # integration frequency in months
 timeScaleConversion = 1. / 12
-sampFreq = timeFreq / timeScaleConversion
 dim = len(cfg.caseDef.indicesName)
 
 nev = cfg.spectrum.nev
-nevPlot = 15
+nevPlot = 10
 #plotBackward = False
 plotBackward = True
 plotImag = False
@@ -27,9 +25,6 @@ xminEigVal = -1.2
 yminEigVal = -11.5
 ev_xlabel = r'$x_1$'
 ev_ylabel = r'$x_2$'
-lagMax = 100
-chunkWidth = 100
-nSeeds = 10
 
 field_h = (1, 'thermocline depth', 'h', 'm')
 field_T = (2, 'SST', 'T', r'$^\circ C$')
@@ -69,16 +64,27 @@ gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
 (X, Y) = ergoPlot.readGrid(gridFile, dim)
 coord = (X.flatten(), Y.flatten())
 
-nLags = len(cfg.transfer.tauDimRng)
+if hasattr(cfg.transfer, "tauDimRng"):
+    tauDimRng = np.array(cfg.transfer.tauDimRng)
+    nLags = len(tauDimRng)
+elif hasattr(cfg.transfer, "stepLag") \
+     and hasattr(cfg.transfer, "lag0") \
+     and hasattr(cfg.transfer, "nLags"):
+    nLags = cfg.transfer.nLags
+    tauDimRng = np.empty((nLags,))
+    for lag in np.arange(nLags):
+        tauDimRng[lag] = cfg.transfer.lag0 + lag*cfg.transfer.stepLag
 
-
+tauDimRng = np.arange(1., 80., 1.)
+nLags = tauDimRng.shape[0]
+ 
 eigenCondition = np.empty((nLags, cfg.spectrum.nev))
 eigVal = np.empty((nLags, cfg.spectrum.nev), dtype=complex)
 eigValGen = np.empty((nLags, cfg.spectrum.nev), dtype=complex)
 for lag in np.arange(nLags):
-    tau = cfg.transfer.tauDimRng[lag]
-    tauConv = tau * timeScaleConversion
+    tau = tauDimRng[lag]
     postfix = "%s_tau%03d" % (gridPostfix, tau * 1000)
+    tauConv = tau * timeScaleConversion
     
     # Define file names
     EigValForwardFile = '%s/eigval/eigValForward_nev%d%s.txt' \
@@ -130,7 +136,7 @@ for lag in np.arange(nLags):
 
     plt.figure()
     plt.scatter(eigValGen[lag].real, eigValGen[lag].imag)
-    plt.xlim(xminEigVal / 2, -xminEigVal / 100)
+    plt.xlim(xminEigVal / 4, -xminEigVal / 100)
     plt.ylim(yminEigVal, -yminEigVal)
 
 

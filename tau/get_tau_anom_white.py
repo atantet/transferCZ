@@ -5,10 +5,7 @@ from matplotlib import cm, colors
 from mpl_toolkits.basemap import Basemap, addcyclic
 from scipy.io import FortranFile
 
-# Amplification factor for the mean wind stress
-ampMean = 3.0
-
-initDir = '../init/'
+initDir = '../data/init/'
 nlat = 31
 nlon = 30
 year0 = 1961
@@ -18,6 +15,9 @@ periodName = "%d%d" % (year0, yearf)
 postfix = '%s_%s' % (gridName, periodName)
 dstPostfix = ''
 noiseType = 'White'
+nEOF = 1
+#nEOF = 3
+seed = 0
 
 sstFile = "ersst.%s.nc"  % postfix
 psFile = "pac.%s.nc" % postfix
@@ -34,12 +34,13 @@ toND = L / (c0**2 * rho * H) # = F0 / tau0
 
 # time
 T = 600 # duration in years
-seed = 4
 nBlocks = 1
 dt = 0.060 # adimensional time-step
 adim2Sec = L / c0 # Conversion from adimensional to seconds
 sec2Years =  1. / (60*60*24*365)
 adim2Years = adim2Sec * sec2Years
+
+print 'Getting stochastic wind stress for a seed of ', seed
 
 # Read cartesian coordinates
 x = np.loadtxt('%s/lon_%s.txt' % (initDir, gridName))
@@ -61,8 +62,10 @@ llcrnrlat = lat.min()
 urcrnrlon = lon.max()
 urcrnrlat = lat.max()
 nlev = 10
-map = Basemap(projection='merc', llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat, urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat, resolution='c')
+map = Basemap(projection='merc', llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat,
+              urcrnrlon=urcrnrlon, urcrnrlat=urcrnrlat, resolution='c')
 (x, y) = map(LON, LAT)
+
 
 # Read zonal pseudo wind-stress
 dset = Dataset(psFile, "r")
@@ -84,8 +87,10 @@ nValid = N - mask.sum()
 print 'Getting anomalies...'
 sstMean = sstMasked.mean(0)
 WuMean = WuMasked.mean(0)
+# Get anomalies with respect to the mean
 sstMaskedAnom = sstMasked - np.tile(np.expand_dims(sstMean, 0), (ntObs, 1))
 WuMaskedAnom = WuMasked - np.tile(np.expand_dims(WuMean, 0), (ntObs, 1))
+# Get anomalies with respect to the seasonal cycle
 ssta = np.copy(sstMaskedAnom,)
 Wua = np.copy(WuMaskedAnom)
 for k in np.arange(12):
@@ -101,6 +106,8 @@ for ij in np.arange(nValid):
     X = np.matrix(ssta[:, ij]).T
     Y = np.matrix(Wua[:, ij]).T
     A = (X.T * X)**(-1) * (X.T * Y)
+    # Remove the part of the windstress that can
+    # be explained by the linear model with SST
     WuResDim[:, ij] = np.squeeze(np.array(Y - X * A))
         
 # Adimensionalize ! F0=L tau0/(co^2 rho H)  
@@ -139,10 +146,10 @@ pc = pc[:, isort][:, ::-1]
 wn = w / w.sum()
 
 # Plot first EOFs
-nEOF = 1
-#nEOF = 3
-print 'First %d EOFs explained variance: ' % nEOF, (wn[:nEOF] * 100).astype(int)
-print 'First %d EOFs cumulated explained variance: ' % nEOF, (wn[:nEOF].cumsum() * 100).astype(int)
+print 'First %d EOFs explained variance: %2d%%' \
+    % (nEOF, (wn[:nEOF] * 100).astype(int))
+print 'First %d EOFs cumulated explained variance: %2d%%' \
+    % (nEOF, (wn[:nEOF].cumsum() * 100).astype(int))
 for k in np.arange(nEOF):
     fig = plt.figure()
     eof = np.ma.masked_all((nlat*nlon,))
@@ -152,7 +159,8 @@ for k in np.arange(nEOF):
     vmin = -vmax
     levels = np.linspace(vmin, vmax, nlev)
     cs = map.contourf(x, y, eof, levels, cmap=cm.RdBu_r)
-    plt.title('EOF #' + str(k) + " explaining %2d%% of variance" % (wn[k] * 100,))
+    plt.title('EOF #' + str(k) + " explaining %2d%% of variance" \
+              % (wn[k] * 100,))
     map.drawcoastlines()
     # draw parallels and meridians.
     map.drawparallels(np.arange(0, 81.,10.))
@@ -194,8 +202,10 @@ nino4slat = -5.
 nino4nlat = 5.
 nino4wlon = 160.
 nino4elon = 210.
-nino4 = WuRes[:, (lonlMasked >= nino4wlon) & (lonlMasked <= nino4elon)
-              & (latlMasked >= nino4slat) & (latlMasked <= nino4nlat)].mean(1) / toND
+nino4 = WuRes[:,(lonlMasked >= nino4wlon)
+              & (lonlMasked <= nino4elon)
+              & (latlMasked >= nino4slat)
+              & (latlMasked <= nino4nlat)].mean(1) / toND
 
 # Get periodogram of zonal wind stress averaged over nino4
 ts = nino4# / nt
@@ -300,14 +310,14 @@ dY3Right = Y3[:, -1] - Y3[:, -2]
 # Set the seed
 np.random.seed(seed)
 for k in np.arange(nEOF):
-    ftau.append(FortranFile('%s/tau%s_%deofs_amp%02d_seed%d%s.bin' \
-                            % (initDir, noiseType, k+1, int(ampMean * 10),
-                               seed, dstPostfix), 'w'))
-    fdtaudx.append(FortranFile('%s/dtaudx%s_%deofs_amp%02d_seed%d%s.bin' \
-                              % (initDir, noiseType, k+1, int(ampMean * 10),
+    ftau.append(FortranFile('%s/tau%s_%deofs_seed%d%s.bin' \
+                            % (initDir, noiseType, k+1, seed, dstPostfix),
+                            'w'))
+    fdtaudx.append(FortranFile('%s/dtaudx%s_%deofs_seed%d%s.bin' \
+                              % (initDir, noiseType, k+1,
                                  seed, dstPostfix), 'w'))
-    fdtaudy.append(FortranFile('%s/dtaudy%s_%deofs_amp%02d_seed%d%s.bin' % \
-                              (initDir, noiseType, k+1, int(ampMean * 10),
+    fdtaudy.append(FortranFile('%s/dtaudy%s_%deofs_seed%d%s.bin' % \
+                              (initDir, noiseType, k+1,
                                seed, dstPostfix), 'w'))
 
 for block in np.arange(nBlocks):
@@ -324,7 +334,8 @@ for block in np.arange(nBlocks):
         eof = eof.reshape(nlat, nlon)
         tauNoNorm += np.tile(np.expand_dims(np.expand_dims(pcwn[:, k], 1), 2),
                              (1, nlat, nlon)) \
-                             * np.tile(np.expand_dims(eof, 0), (ntBlock, 1, 1))
+                             * np.tile(np.expand_dims(eof, 0),
+                                       (ntBlock, 1, 1))
         # Normalize
         tau =  tauNoNorm / np.tile(tauNoNorm.std(0).mean(), (ntBlock, 1, 1))
         dtaudx = np.empty(tau.shape)

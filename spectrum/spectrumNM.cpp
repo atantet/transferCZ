@@ -1,399 +1,267 @@
-#define DIM 2
-#include <cstdlib>
+include <cstdlib>
 #include <cstdio>
+#include <stdexcept>
+#include <iostream>
 #include <cstring>
 #include <vector>
+#include <stdexcept>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_math.h>
-#include <libconfig.h++>
 #include <ergoPack/transferOperator.hpp>
+#include <ergoPack/transferSpectrum.hpp>
+#include "../cfg/readConfig.hpp"
 
-using namespace libconfig;
 
-
-/** \file transferCZ.cpp
- *  \brief Get transition matrices and distributions for the Cane-Zebiak model.
+/** \file spectrumCZ.cpp
+ *  \brief Get spectrum of transfer operators for the Cane-Zebiak model.
  *   
- * Get transition matrices and distributions from a long time series
- * from the Cane-Zebiak model.
+ * Get spectrum of transfer operators for the Cane-Zebiak model.
  * For configuration, the file cfg/transferCZ.cfg is parsed using libconfig C++ library.
- * In this case, several time series corresponding to different
- * noise realizations are used.
- * First read the observable and get its mean and standard deviation
- * used to adapt the grid.
- * A rectangular grid is used here.
- * A grid membership vector is calculated for each time series 
- * assigning to each realization a grid box.
- * Then, the membership matrix is calculated for a given lag
- * with a concatenation over the seeds.
- * The forward transition matrix as well as the initial distribution
- * are calculated from the membership matrix.
- * Note that, since the transitions are calculated from long time series,
- * the problem must be stationary and there is no need to calculate
- * the backward transition matrix and final distribution.
- * Finally, the results are printed.
+ * The transition matrices are then read from matrix files in compressed format.
+ * The Eigen problem is then defined and solved using ARPACK++.
+ * Finally, the results are written to file.
  */
 
 
-// Declarations
-/** \brief User defined function to get parameters from a cfg file using libconfig. */
-int readConfig(const char *cfgFileNamePrefix);
-
-/** \briefCount number of lines in file. */
-size_t lineCount(FILE *fp);
-
-
-/**
- * Structure defining a field.
- */
-struct fieldDef {
-  /**
-   * Column index of the field in the data file.
-   */
-  int tableIdx;
-  /**
-   * Short field name used for file names.
-   */
-  char shortName[256];
-  /**
-   * Factor to convert the field from adimensional to dimensional units.
-   */
-  double toDimFactor;
-};
-
-// Paths
-const char prefix[] = "zc_1eof_";
-const char indexDir[] = "../data/observables/";
-const char resDir[] = "../results/";
-const size_t dimSeries = 5;
-
+// Configuration
+char configFileName[256];
+// General
+char indicesDir[256];
+char resDir[256];
+char specDir[256];
+char plotDir[256];
 // Units
-const double L = 1.5e7;
-const double c0 = 2.;
-const double timeDim = L / c0 / (60. * 60. * 24);
-const double H = 200.;
-const double tau_0 = 1.0922666667e-2;
-const double delta_T = 1.;
-const struct fieldDef field_h = {1, "h", H};
-const struct fieldDef field_T = {2, "T", delta_T};
-
-// Configuration 
-char cfgFileName[256];
-char srcPostfix[256], gridCFG[256], obsName[256], gridPostfix[256], gridFileName[256];
+double L;                   //!< Horizontal unit of length
+double c0;                  //!< Ocean wave celerity
+double timeDim;             //!< Time dimension in days
+double sampFreq;            //!< Sampling frequency in months
+double H;                   //!< Vertical unit of length
+double tau_0;               //!< Wind-stress unit
+double delta_T;             //!< Temperature unit
+// CaseDef
+char prefix[256];
+char simType[256];
 std::string indicesName[DIM];
-struct fieldDef fieldsDef[DIM];
-double mu, eps;
+fieldDef field_h;   //!< Thermocline depth record definition
+fieldDef field_T;   //!< SST record definition
+fieldDef fields[DIM];
+double mu;
+double eps;
 gsl_vector_uint *seedRng;
 size_t nSeeds;
+char obsName[256];
+char srcPostfix[256];
+// Simulation
+double dt;
+double spinupMonth;
+int dimSeries;
+// Grid
 bool readGridMem;
 size_t N;
-double dt, spinupMonth;
 gsl_vector_uint *nx;
-gsl_vector *nSTDLow, *nSTDHigh;
-size_t nLags;
+gsl_vector *nSTDLow;
+gsl_vector *nSTDHigh;
+char gridPostfix[256];
+char gridCFG[256];
+char gridFileName[256];
+// Transfer
+int nLags;
 gsl_vector *tauDimRng;
-int nev;
+bool stationary;                //!< Whether the problem is stationary or not
+// Spectrum
+int nev;                        //!< Number of eigenvalues to look for
+configAR config;                //!< Configuration data for the eigen problem
+bool getForwardEigenvectors;    //!< Whether to get forward eigenvectors
+bool getBackwardEigenvectors;   //!< Whether to get backward eigenvectors
+bool makeBiorthonormal;         //!< Whether to make eigenvectors biorthonormal
 
 
 // Main program
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (readConfig("transferCZ")) {
-    std::cerr << "Error reading config file " << argv[0] << ".cfg"
-	      << std::endl;
-    return(EXIT_FAILURE);
-  }
-
-  // Declarations
-  // Simulation parameters
-  const double sampFreq = 0.35 / dt;
-  size_t spinup = (size_t) (spinupMonth * sampFreq);
-
-  // Names and Files
-  char srcPostfixSeed[256], postfix[256], gridPostfixSeed[256];
-  char gridMemFileName[256], forwardTransitionFileName[256], initDistFileName[256];
-  FILE *gridMemFile;
-  FILE *indexFile[DIM];
-  char indexPath[DIM][256];
-  size_t count;
-  
-  // Vectors and matrices
-  size_t tauStep;
-  double tauDim;
-  std::vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
-  gsl_matrix_uint *gridMemMatrix;
-  transferOperator *transferOp;
-  gsl_matrix *data;
-  gsl_vector *xmin;
-  gsl_vector *xmax;
-  gsl_vector_uint *ntIndex = gsl_vector_uint_alloc(DIM);
-  gsl_vector *statesMean = gsl_vector_calloc(DIM);
-  gsl_vector *statesSTD = gsl_vector_calloc(DIM);
-  std::vector<gsl_matrix *> statesSeeds(nSeeds);
-  gsl_vector_uint *ntSeeds = gsl_vector_uint_alloc(nSeeds);
-  size_t ntTot = 0;
-
-  // Grid related
-  Grid *grid;
-
-  // Read membership vectors
-  for (size_t seed = 0; seed < nSeeds; seed++) {
-    // Open grid membership file to read
-    sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
-    sprintf(gridPostfixSeed, "_%s%s%s", srcPostfixSeed, obsName, gridCFG);
-    sprintf(gridMemFileName, "%s/transitionMatrix/gridMem%s.txt",
-	    resDir, gridPostfixSeed);
-    std::cout << "Reading grid membership vector for seed " << seed
-	      << " at " << gridMemFileName << std::endl;
-    if ((gridMemFile = fopen(gridMemFileName, "r")) == NULL){
-      fprintf(stderr, "Can't open %s for reading!\n", gridMemFileName);
+  if (argc < 2)
+    {
+      std::cout << "Enter path to configuration file:" << std::endl;
+      std::cin >> configFileName;
+    }
+  else
+    {
+      strcpy(configFileName, argv[1]);
+    }
+  try
+    {
+      readConfig(configFileName);
+    }
+  catch (...)
+    {
+      std::cerr << "Error reading configuration file" << std::endl;
       return(EXIT_FAILURE);
     }
 
-    // Allocate grid membership vector for seed
-    count = lineCount(gridMemFile);
-    fseek(gridMemFile, 0, SEEK_SET);
-    gridMemSeeds[seed] = gsl_vector_uint_alloc(count);
+  
+  // Declarations
+  // Lags
+  double tauDim;
 
-    gsl_vector_uint_fscanf(gridMemFile, gridMemSeeds[seed]);
-    fclose(gridMemFile);
-  }
+  // Names and Files
+  char postfix[256];
+  char forwardTransitionFileName[256], initDistFileName[256];
 
-  // Get transition matrices for different lags
-  double *EigValReal = new double [nev];
-  double *EigValImag = new double [nev];
+  char EigValForwardFileName[256], EigVecForwardFileName[256],
+    EigValBackwardFileName[256], EigVecBackwardFileName[256];
 
-  size_t count = 0;
+  // Transition Matrix
+  transferOperator *transferOp;
+  transferSpectrum *transferSpec;
+  size_t ev;
+
+  ev = 0;
+  // Remove first eigenvalue
+
+  ev++;
+  
+  // Find first (pair of) eigenvalue(s) increasing the lag
+  lag = 0;
+  while ((lag < nLags))
+    {
+      // Read transfer operator
+
+      // Get spectrum
+      tauDim = gsl_vector_get(tauDimRng, lag);
+      std::cout << "Getting spectrum of transfer operator for lag " << tauDim << std::endl;
+
+      // Get file names
+      sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
+      sprintf(forwardTransitionFileName, \
+	      "%s/transfer/forwardTransition/forwardTransition%s.coo", resDir, postfix);
+      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt",
+	      resDir, postfix);
+      sprintf(EigValForwardFileName, "%s/eigval/eigvalForward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigVecForwardFileName, "%s/eigvec/eigvecForward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigValBackwardFileName, "%s/eigval/eigvalBackward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigVecBackwardFileName, "%s/eigvec/eigvecBackward_nev%d%s.txt",
+	      specDir, nev, postfix);
+
+      
+      lag++;
+    }
+
+  // Get eigenvalue from previous operator to get imaginary part of generator
+
+  // Save generator eigenvalue
+
+  // Once eigenvalue with largest real part, remove it from operator
+
+  // Find other eigenvalues one by one
+  ev = 
   for (size_t ev = 0; ev < (size_t) nev; ev++)
     {
-      for (size_t lag = 0; lag < nLags; lag++)
-	{
-	  tauDim = gsl_vector_get(tauDimRng, lag);
-	  tauStep = (size_t) (tauDim * sampFreq);
+      // Get eigenvalue
 
-	  // Update file names
-	  sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
-	  sprintf(forwardTransitionFileName,
-		  "%s/transitionMatrix/forwardTransition%s.coo", resDir, postfix);
-	  sprintf(initDistFileName, "%s/transitionMatrix/initDist%s.txt", resDir, postfix);
+      // Get condition number
+      
+      // Decrease lag until condition number is small enough,
+      // removing the component of each recorded eigenvalue
 
-	  // Get full membership matrix
-	  std::cout << "Getting full membership matrix from the list of membership vecotrs..."
-		    << std::endl;
-	  gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauStep);
+      // Get eigenvalue from previous operator to get imaginary part of generator
 
-	  // Get transition matrices as CSR
-	  std::cout << "Building transfer operator..." << std::endl;
-	  transferOp = new transferOperator(gridMemMatrix, N);
+      // Save generator eigenvalue
 
-	  // Solve eigen value problem with default configuration
-	  transferSpec = new transferSpectrum(1, transferOp, config);
-	  std::cout << "Solving eigen problem for forward transition matrix..." << std::endl;
-	  transferSpec->getSpectrumForward();
-	  std::cout << "Found " << transferSpec->EigProbForward.ConvergedEigenvalues()
-		    << " eigenvalues." << std::endl;
-
-	  // Get condition number
-	  transferSpec->getConditionNumber();
-
-	  if (
-
-	  // Save eigenvalue
-	  if ((lag == 0) || (transferSpec->EigValForwardReal[0] > EigValReal[count]))
-	    {
-	      EigValReal[count] = transferSpec->EigValForwardReal[0];
-	      EigValImag[count] = transferSpec->EigValForwardImag[0];
-	      
-	      if (transferSpec->EigProbForward.ConvergedEigenvalues() == 2)
-		{
-		  EigValReal[count+1] = transferSpec->EigValForwardReal[0];
-		  EigValImag[count+1] = transferSpec->EigValForwardImag[0];
-		}
-	    }
-	  // std::cout << "Solving eigen problem for backward transition matrix..." << std::endl;
-	  // transferSpec->getSpectrumBackward();
-	  // std::cout << "Found " << transferSpec->EigProbBackward.ConvergedEigenvalues()
-	  // 		<< " eigenvalues." << std::endl;
-    
-	  // Free
-	  delete transferOp;
-	  gsl_matrix_uint_free(gridMemMatrix);
-	}
     }
-  
-  // Free
-  gsl_vector_uint_free(nx);
-  gsl_vector_free(nSTDLow);
-  gsl_vector_free(nSTDHigh);
-  gsl_vector_free(tauDimRng);
-  gsl_vector_uint_free(seedRng);
-  gsl_vector_uint_free(ntSeeds);
-		
-  return 0;
-}
 
-// Definitions
-int
-readConfig(const char *cfgFileNamePrefix)
-{
-  Config cfg;
-  char cfgFileName[256], cpyBuffer[256];
-  sprintf(cfgFileName, "cfg/%s.cfg", cfgFileNamePrefix);
-
-  // Read the file. If there is an error, report it and exit.
-  try {
-    std::cout << "Reading config file " << cfgFileName << std::endl;
-    cfg.readFile(cfgFileName);
-  }
-  catch(const FileIOException &fioex) {
-    std::cerr << "I/O error while reading configuration file." << std::endl;
-    return(EXIT_FAILURE);
-  }
-  catch(const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
-    return(EXIT_FAILURE);
-  }
-
-  try {
-    std::cout << "Settings:" << std::endl;
-    
-    // Get caseDef settings
-    std::cout << std::endl << "---caseDef---" << std::endl;
-    // Indices and Fields
-    const Setting &indicesNameSetting = cfg.lookup("caseDef.indicesName");
-    const Setting &fieldsNameSetting = cfg.lookup("caseDef.fieldsName");
-    for (size_t d = 0; d < DIM; d++) {
-      indicesName[d] = (const char *) indicesNameSetting[d];
-      if (!strcmp(fieldsNameSetting[d], "h"))
-	fieldsDef[d] = field_h;
-      else if (!strcmp(fieldsNameSetting[d], "T"))
-	fieldsDef[d] = field_T;
-      else {
-	std::cerr << "Wrong field name for dimension " << d << std::endl;
-	return(EXIT_FAILURE);
-      }	
-      std::cout << "indicesName[" << d << "]: "
-		<< indicesName[d] << std::endl;
-      std::cout << "fieldsName[" << d << "]: "
-		<< fieldsDef[d].shortName << std::endl;
-    }
-    mu = cfg.lookup("caseDef.mu");
-    eps = cfg.lookup("caseDef.eps");
-    std::cout << "mu: " << mu << std::endl
-	      << "eps: " << eps << std::endl;
-    const Setting &seedRngSetting = cfg.lookup("caseDef.seedRng");
-    nSeeds = seedRngSetting.getLength();
-    seedRng = gsl_vector_uint_alloc(nSeeds);
-    std::cout << "seedRng = {";
-    for (size_t seed = 0; seed < nSeeds; seed++) {
-      gsl_vector_uint_set(seedRng, seed, seedRngSetting[seed]);
-      std::cout << gsl_vector_uint_get(seedRng, seed) << ", ";
-    }
-    std::cout << "}" << std::endl;
-
-      // Get simulation settings
-    dt = cfg.lookup("simulation.dt");
-    spinupMonth = cfg.lookup("simulation.spinupMonth");
-    std::cout << std::endl << "---simulation---" << std::endl
-  	      << "dt: " << dt << std::endl
-  	      << "spinupMonth: " << spinupMonth << std::endl;
-
-    // Get grid settings
-    std::cout << std::endl << "---grid---" << std::endl;
-    const Setting &nxSetting = cfg.lookup("grid.nx");
-    const Setting &nSTDLowSetting = cfg.lookup("grid.nSTDLow");
-    const Setting &nSTDHighSetting = cfg.lookup("grid.nSTDHigh");
-    nx = gsl_vector_uint_alloc(DIM);
-    N = 1;
-    nSTDLow = gsl_vector_alloc(DIM);
-    nSTDHigh = gsl_vector_alloc(DIM);
-    for (size_t d = 0; d < DIM; d++) {
-      gsl_vector_uint_set(nx, d, nxSetting[d]);
-      N *= gsl_vector_uint_get(nx, d);
-      gsl_vector_set(nSTDLow, d, nSTDLowSetting[d]);
-      gsl_vector_set(nSTDHigh, d, nSTDHighSetting[d]);
-      std::cout << "Grid definition (nSTDLow, nSTDHigh, n):" << std::endl;
-      std::cout << "dim " << d+1 << ": ("
-		<< gsl_vector_get(nSTDLow, d) << ", "
-		<< gsl_vector_get(nSTDHigh, d) << ", "
-		<< gsl_vector_uint_get(nx, d) << ")" << std::endl;
-    }
-    readGridMem = cfg.lookup("grid.readGridMem");
-    std::cout << "readGridMem: " << readGridMem << std::endl;
-
-
-    // Get transition settings
-    const Setting &tauDimRngSetting = cfg.lookup("transition.tauDimRng");
-    nLags = tauDimRngSetting.getLength();
-    tauDimRng = gsl_vector_alloc(nLags);
-
-    std::cout << std::endl << "---transition---" << std::endl;
-    std::cout << "tauDimRng = {";
-    for (size_t lag = 0; lag < nLags; lag++) {
-      gsl_vector_set(tauDimRng, lag, tauDimRngSetting[lag]);
-      std::cout << gsl_vector_get(tauDimRng, lag) << ", ";
-    }
-    std::cout << "}" << std::endl;
-  }
-  catch(const SettingNotFoundException &nfex) {
-    std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
-    return(EXIT_FAILURE);
-  }
-
-  std::cout << std::endl;
-
-  // Define grid name
-  sprintf(srcPostfix, "%smu%04d_eps%04d", prefix, (int) (mu*1000),
-	  (int) (eps*1000));
-  sprintf(gridCFG, "");
-  strcpy(obsName, "");
-  for (size_t d = 0; d < DIM; d++)
+      
+  for (size_t lag = 0; lag < (size_t) nLags; lag++)
     {
-      strcpy(cpyBuffer, obsName);
-      sprintf(obsName, "%s_%s_%s", cpyBuffer, fieldsDef[d].shortName,
-	      indicesName[d].c_str());
-      strcpy(cpyBuffer, gridCFG);
-      sprintf(gridCFG, "%s_n%dl%dh%d", cpyBuffer,
-	      gsl_vector_uint_get(nx, d),
-	      (int) gsl_vector_get(nSTDLow, d),
-	      (int) gsl_vector_get(nSTDHigh, d));
+      tauDim = gsl_vector_get(tauDimRng, lag);
+      std::cout << "Getting spectrum of transfer operator for lag " << tauDim << std::endl;
+
+      // Get file names
+      sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tauDim * 1000));
+      sprintf(forwardTransitionFileName, \
+	      "%s/transfer/forwardTransition/forwardTransition%s.coo", resDir, postfix);
+      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt",
+	      resDir, postfix);
+      sprintf(EigValForwardFileName, "%s/eigval/eigvalForward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigVecForwardFileName, "%s/eigvec/eigvecForward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigValBackwardFileName, "%s/eigval/eigvalBackward_nev%d%s.txt",
+	      specDir, nev, postfix);
+      sprintf(EigVecBackwardFileName, "%s/eigvec/eigvecBackward_nev%d%s.txt",
+	      specDir, nev, postfix);
+
+      // Read transfer operator
+      std::cout << "Reading transfer operator..." << std::endl;
+      transferOp = new transferOperator(N, stationary);
+      transferOp->scanInitDist(initDistFileName);
+      transferOp->scanForwardTransition(forwardTransitionFileName);
+
+      // Get spectrum
+      try
+	{
+	  // Solve eigen value problem with default configuration
+	  transferSpec = new transferSpectrum(nev, transferOp, config);
+
+	  if (getForwardEigenvectors)
+	    {
+	      std::cout << "Solving eigen problem for forward transition matrix..." << std::endl;
+	      transferSpec->getSpectrumForward();
+	      std::cout << "Found " << transferSpec->EigProbForward.ConvergedEigenvalues()
+			<< "/" << nev << " eigenvalues." << std::endl;	      
+	    }
+	  if (getBackwardEigenvectors)
+	    {
+	      std::cout << "Solving eigen problem for backward transition matrix..." << std::endl;
+	      transferSpec->getSpectrumBackward();
+	      std::cout << "Found " << transferSpec->EigProbBackward.ConvergedEigenvalues()
+			<< "/" << nev << " eigenvalues." << std::endl;
+	    }
+	  if (makeBiorthonormal)
+	    {
+	      std::cout << "Making set of forward and backward eigenvectors biorthonormal..."
+			<< std::endl;
+	      transferSpec->makeBiorthonormal();
+	    }
+	}
+      catch (std::exception &ex)
+	{
+	  std::cerr << "Error calculating spectrum: " << ex.what() << std::endl;
+	  return EXIT_FAILURE;
+	}
+  
+      // Write spectrum 
+      try
+	{
+	  if (getForwardEigenvectors)
+	    {
+	      std::cout << "Writing forward eigenvalues and eigenvectors..." << std::endl;
+	      transferSpec->writeSpectrumForward(EigValForwardFileName,
+						 EigVecForwardFileName);
+	    }
+	  if (getBackwardEigenvectors)
+	    {
+	      std::cout << "Writing backward eigenvalues and eigenvectors..." << std::endl;
+	      transferSpec->writeSpectrumBackward(EigValBackwardFileName,
+						  EigVecBackwardFileName);
+	    }
+	}
+      catch (std::exception &ex)
+	{
+	  std::cerr << "Error writing spectrum: " << ex.what() << std::endl;
+	  return EXIT_FAILURE;
+	}
+
+      // Free
+      delete transferOp;
+      delete transferSpec;
     }
 
-  sprintf(gridPostfix, "_%s%s%s", srcPostfix, obsName, gridCFG);
-  sprintf(gridFileName, "%s/grid/grid%s.txt", resDir, gridPostfix);
-
-  // Get spectrum setting 
-  nev = cfg.lookup("spectrum.nev");
-  std::cout << std::endl << "---spectrum---" << std::endl
-	    << "nev: " << nev << std::endl;
-
+  // Free configuration
+  freeConfig();
+  
   return 0;
 }
-
-
-/**
- * \brief Count the number of lines in a file.
- *
- * Count the number of lines in a file.
- * \param[in] fp File from which to count lines.
- * \return Number of lines in file.
- */
-size_t
-lineCount(FILE *fp)
-{
-  size_t count = 0;
-  int ch;
-
-  // Count lines
-  do {
-    ch = fgetc(fp);
-    if (ch == '\n')
-      count++;
-  } while (ch != EOF);
-
-  return count;
-}
-
