@@ -1,5 +1,5 @@
-INCDIR=-I$(HOME)/local/include/
-LIBDIR=-L$(HOME)/local/lib/
+INCDIR=-I$(HOME)/.local/include/
+LIBDIR=-L$(HOME)/.local/lib/
 LIBS=-lgsl -lconfig++ -lopenblas -larpack -lergopack
 
 CC=g++

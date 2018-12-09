@@ -1,5 +1,5 @@
-INCDIR=-I$(HOME)/local/include/
-LIBDIR=-L$(HOME)/local/lib/
+INCDIR=-I$(HOME)/.local/include/
+LIBDIR=-L$(HOME)/.local/lib/
 LIBS=-lgsl -lconfig++ -lergopack
 
 CC=g++
@@ -7,11 +7,12 @@ WARN=-Wall -Wformat=0
 CFLAGS=$(WARN) -pedantic-errors -O3
 LDFLAGSSTD=-undefined dynamic_lookup
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+WITH_OMP=1
 
 # Use OpenMP?
 ifeq ($(WITH_OMP),1)
-  LIBS +=-lgomp
-  CFLAGS += -fopenmp -DWITH_OMP=$(WITH_OMP)
+  LIBS +=-L/opt/local/lib/libgcc/ -lgomp
+  CFLAGS +=-fopenmp -DWITH_OMP=$(WITH_OMP)
 endif
 
 LDFLAGS=$(LDFLAGSSTD)

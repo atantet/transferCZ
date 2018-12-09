@@ -94,8 +94,7 @@ int main(int argc, char * argv[])
     std::cerr << "Error reading configuration file" << std::endl;
     return(EXIT_FAILURE);
   }
-
-  
+    
   // Declarations
   // Transfer
   double tauDim;
@@ -111,6 +110,7 @@ int main(int argc, char * argv[])
   transferSpectrum *transferSpec;
   
   sprintf(dstPostfix, "%s", gridPostfix);
+
   
   // Scan transition matrices and distributions for different lags
   for (size_t lag = 0; lag < (size_t) nLags; lag++) {
@@ -132,6 +132,7 @@ int main(int argc, char * argv[])
 	    specDir, nev, dstPostfixTau, fileFormat);
     sprintf(EigVecBackwardFileName, "%s/eigvec/eigvecBackward_nev%d%s.%s",
 	    specDir, nev, dstPostfixTau, fileFormat);
+
 
     // Read transfer operator
     std::cout << "Reading transfer operator..." << std::endl;
@@ -175,6 +176,7 @@ int main(int argc, char * argv[])
 		<< std::endl;
       return EXIT_FAILURE;
     }
+
     // Get spectrum
     try {
       // Solve eigen value problem with default configuration

@@ -91,6 +91,7 @@ extern configAR config;                //!< Configuration data for the eigen pro
 extern bool getForwardEigenvectors;    //!< Whether to get forward eigenvectors
 extern bool getBackwardEigenvectors;   //!< Whether to get backward eigenvectors
 extern bool makeBiorthonormal;         //!< Whether to make eigenvectors biorthonormal
+char methodCfg[] = "LM";
 
 
 // Definitions
@@ -99,7 +100,7 @@ readConfig(const char *configFileName)
 {
   Config cfg;
   char cpyBuffer[256];
-  configAR defaultCfgAR = {"LM", 0, 0., 0, NULL, true};
+  configAR defaultCfgAR = {methodCfg, 0, 0., 0, NULL, true};
   
   
   // Read the file. If there is an error, report it and exit.
