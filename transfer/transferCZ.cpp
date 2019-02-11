@@ -119,8 +119,8 @@ int main(int argc, char * argv[])
   char gridMemFileName[256], transitionFileName[256],
     maskFileName[256], initDistFileName[256];
   FILE *gridMemStream;
-  FILE *indexFile[DIM];
-  char indexPath[DIM][256];
+  FILE *indexFile;
+  char indexPath[256];
   size_t count;
   
   // Vectors and matrices
@@ -132,7 +132,8 @@ int main(int argc, char * argv[])
   gsl_matrix *data;
   gsl_vector *xmin;
   gsl_vector *xmax;
-  gsl_vector_uint *ntIndex = gsl_vector_uint_alloc(DIM);
+  size_t ntIndex;
+  size_t d;
   gsl_vector *statesMean = gsl_vector_calloc(DIM);
   gsl_vector *statesSTD = gsl_vector_calloc(DIM);
   std::vector<gsl_matrix *> statesSeeds(nSeeds);
@@ -148,45 +149,50 @@ int main(int argc, char * argv[])
       
       // Read observable
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
-      for (size_t d = 0; d < DIM; d++){
-	sprintf(indexPath[d], "%s/%s/%s.txt", indicesDir, srcPostfixSeed,
-		indicesName[d].c_str());
-	// Open observable file d
-	if ((indexFile[d] = fopen(indexPath[d], "r")) == NULL){
-	  fprintf(stderr, "Can't open %s for reading!\n", indexPath[d]);
-	  return(EXIT_FAILURE);
-	}
-	// Get number of lines
-	count = lineCount(indexFile[d]);
-	gsl_vector_uint_set(ntIndex, d, count);
-	fseek(indexFile[d], 0, SEEK_SET);
+      sprintf(indexPath, "%s/%s/indices.txt", indicesDir, srcPostfixSeed);
+      // Open observable file d
+      if ((indexFile = fopen(indexPath, "r")) == NULL){
+	fprintf(stderr, "Can't open %s for reading!\n", indexPath);
+	return(EXIT_FAILURE);
       }
+      // Get number of lines
+      ntIndex = lineCount(indexFile);
+      fseek(indexFile, 0, SEEK_SET);
+
       // Get index length and allocate
-      gsl_vector_uint_set(ntSeeds, seed,
-			  gsl_vector_uint_min(ntIndex) - spinup);
+      gsl_vector_uint_set(ntSeeds, seed, ntIndex - spinup);
       ntTot += gsl_vector_uint_get(ntSeeds, seed);
       statesSeeds[seed] = gsl_matrix_alloc(gsl_vector_uint_get(ntSeeds, seed),
 					   DIM);
 
       // Read trajectory and get the total mean and standard defination
-      for (size_t d = 0; d < DIM; d++){
-	data = gsl_matrix_alloc(gsl_vector_uint_get(ntIndex, d), dimSeries);
-	// Read trajectory
-	std::cout << "Reading trajectory in " << indexPath[d] << std::endl;
-	gsl_matrix_fscanf(indexFile[d], data);
-	fclose(indexFile[d]);
-	for (size_t k = 0; k < gsl_vector_uint_get(ntSeeds, seed); k++) {
-	  gsl_matrix_set(statesSeeds[seed], k, d,
-			 gsl_matrix_get(data, spinup+k, fields[d].tableIdx)
-			 * fields[d].toDimFactor);
-	  gsl_vector_set(statesMean, d, gsl_vector_get(statesMean, d) \
-			 + gsl_matrix_get(statesSeeds[seed], k, d));
-	  gsl_vector_set(statesSTD, d, gsl_vector_get(statesSTD, d)
-			 + gsl_pow_2(gsl_matrix_get(statesSeeds[seed],
-						    k, d)));
-	}
-	gsl_matrix_free(data);
+      data = gsl_matrix_alloc(ntIndex, dimSeries);
+      // Read trajectory
+      std::cout << "Reading trajectory in " << indexPath << std::endl;
+      gsl_matrix_fscanf(indexFile, data);
+      fclose(indexFile);
+      for (size_t k = 0; k < gsl_vector_uint_get(ntSeeds, seed); k++) {
+	// Eastern SST
+	d = 0;
+	gsl_matrix_set(statesSeeds[seed], k, d,
+		       gsl_matrix_get(data, spinup+k, 1) * delta_T);
+	gsl_vector_set(statesMean, d, gsl_vector_get(statesMean, d)
+		       + gsl_matrix_get(statesSeeds[seed], k, d));
+	gsl_vector_set(statesSTD, d, gsl_vector_get(statesSTD, d)
+		       + gsl_pow_2(gsl_matrix_get(statesSeeds[seed],
+						  k, d)));
+
+	// Western TD
+	d = 1;
+	gsl_matrix_set(statesSeeds[seed], k, d,
+		       gsl_matrix_get(data, spinup+k, 2) * H);
+	gsl_vector_set(statesMean, d, gsl_vector_get(statesMean, d)
+		       + gsl_matrix_get(statesSeeds[seed], k, d));
+	gsl_vector_set(statesSTD, d, gsl_vector_get(statesSTD, d)
+		       + gsl_pow_2(gsl_matrix_get(statesSeeds[seed],
+						  k, d)));
       }
+      gsl_matrix_free(data);
     }
 
     // Create grid
