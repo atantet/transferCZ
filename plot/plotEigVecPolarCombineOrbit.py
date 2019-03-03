@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib import cm
 import pylibconfig2
 from ergoPack import ergoPlot
@@ -31,11 +32,13 @@ cbar_format = '{:.2e}'
 evPlot = np.array([1, 2, 3, 4, 5, 6])
 plotForward = False
 plotBackward = True
-xmin = None
-xmax = None
-ymin = None
-ymax = None
+# xmin = None
+# xmax = None
+# ymin = None
+# ymax = None
 cbar_format = '{:.3e}'
+# plot_orbit = True
+plot_orbit = False
 
 # ampMin = 0.
 # ampMax = 0.07
@@ -145,6 +148,23 @@ eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
 eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
 
 
+# Read orbit
+units = {'T': cfg.units.delta_T, 'h': cfg.units.H}
+if plot_orbit:
+    dataDir = 'zc_1eof_mu{:04d}_eps0000_seed0'.format(
+        int(cfg.caseDef.mu * 1000 + 0.1), int(cfg.caseDef.eps * 1000 + 0.1))
+    indicesDir = cfg.general.indicesDir
+    xorbit = []
+    for idxName, fieldName in zip(
+            cfg.caseDef.indicesName, cfg.caseDef.fieldsName):
+        filePath = os.path.join(indicesDir, dataDir, idxName + '.txt')
+        xorbit.append(np.expand_dims(
+            np.loadtxt(filePath)[:, 1] * units[fieldName], axis=1))
+    nt = np.min([xo.shape[0] for xo in xorbit])
+    xorbit = np.concatenate([xo[:nt] for xo in xorbit], axis=1)
+    it0 = int(xorbit.shape[0] * 0.99)
+    xorbit = xorbit[it0:]
+
 # Plot eigenvectors of transfer operator
 alpha = 0.05
 csfilter = 0.5
@@ -163,6 +183,11 @@ for ev in evPlot:
             xmax=xmax, ymin=ymin, ymax=ymax, xtick_formatter=xtick_formatter,
             ytick_formatter=ytick_formatter, cbar_format=cbar_format)
 
+        if plot_orbit:
+            # Add orbit
+            ax = fig.gca()
+            ax.plot(xorbit[:, 0], xorbit[:, 1], '-k', linewidth=2)
+
         dstFile = '%s/eigvec/eigvecForwardPolar_nev%d_ev%03d%s.%s' \
                   % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
@@ -176,7 +201,15 @@ for ev in evPlot:
             xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
             xtick_formatter=xtick_formatter, ytick_formatter=ytick_formatter,
             cbar_format=cbar_format)
+
+        if plot_orbit:
+            # Add orbit
+            ax = fig.gca()
+            ax.plot(xorbit[:, 0], xorbit[:, 1], '-k', linewidth=2)
+
         dstFile = '%s/eigvec/eigvecBackwardPolar_nev%d_ev%03d%s.%s' \
                   % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
+
+plt.show(block=False)
