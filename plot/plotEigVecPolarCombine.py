@@ -21,10 +21,10 @@ dimObs = len(cfg.caseDef.indicesName)
 nSeeds = len(cfg.caseDef.seedRng)
 
 nev = cfg.spectrum.nev
-evPlot = np.array([2, 4, 6])
+evPlot = np.array([0, 2, 4, 6, 8])
 # evPlot = np.array([1, 2, 3, 4, 5, 6])
-plotForward = False
-#plotForward = True
+#plotForward = False
+plotForward = True
 #plotBackward = False
 plotBackward = True
 # ampMin = 0.
@@ -33,10 +33,14 @@ plotBackward = True
 ampMin = None
 ampMax = None
 nlevAmp = None
-xmin = 21.
-xmax = 30.
-ymin = 70.
-ymax = 370.
+# xmin = 21.
+# xmax = 30.
+# ymin = 70.
+# ymax = 370.
+xmin = None
+xmax = None
+ymin = None
+ymax = None
 
 field_h = (1, 'H', 'h', 'm')
 field_T = (2, 'SST', 'T', r'$^\circ C$')
@@ -100,7 +104,7 @@ specDir = '%s/spectrum/' % cfg.general.plotDir
 eigValForwardFile = '%s/eigval/eigValForward_nev%d%s.%s' \
                     % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
 eigVecForwardFile = '%s/eigvec/eigVecForward_nev%d%s.%s' \
-                    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
+    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
 eigValBackwardFile = '%s/eigval/eigValBackward_nev%d%s.%s' \
                     % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
 eigVecBackwardFile = '%s/eigvec/eigVecBackward_nev%d%s.%s' \

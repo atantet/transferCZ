@@ -12,6 +12,9 @@ cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 fileFormat = cfg.general.fileFormat
 
+#muRng = np.array([2.5, 2.8, 2.9, 3.5])
+muRng = np.array([2.7, 2.75, 2.8, 2.85, 2.9])
+
 # Transition lag
 timeScaleConversion = 1. / 12
 dimObs = len(cfg.caseDef.indicesName)
@@ -83,10 +86,9 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 lw = 2
 ls = '-'
-muRng = np.array([2.5, 2.8, 2.9, 3.5])
 eigValTauMu = []
 for imu, mu in enumerate(muRng):
-    print('\nmu: {:.1f}'.format(mu))
+    print('\nmu: {:.2f}'.format(mu))
     srcPostfix = "%s%s_mu%04d_eps%04d" % (cfg.caseDef.prefix,
                                           cfg.caseDef.simType,
                                           np.round(mu * 1000, 1),
@@ -109,15 +111,12 @@ for imu, mu in enumerate(muRng):
         coord = (X.flatten(), Y.flatten(), Z.flatten())
     dstPostfix = gridPostfix
 
-    iTauDimRng = np.array(cfg.transfer.tauDimRng).astype(int)
-    idx = pd.Index(iTauDimRng, name='tauDim')
+    idx = pd.Index(cfg.transfer.tauDimRng, name='tauDim')
     cols = pd.Index(range(nev), name='iev')
     eigValTau = pd.DataFrame(index=idx, columns=cols, dtype=complex)
     eigCondTau = pd.DataFrame(index=idx, columns=cols)
-    tauRng = iTauDimRng * timeScaleConversion
-    for ktau, tauDim in enumerate(cfg.transfer.tauDimRng):
-        iTauDim = int(tauDim)
-        tau = tauRng[ktau]
+    for tauDim in idx:
+        tau = tauDim * timeScaleConversion
         dstPostfixTau = "%s_tau%03d" % (gridPostfix, int(tauDim * 1000 + 0.1))
         specDir = os.path.join(cfg.general.plotDir, 'spectrum')
         
@@ -165,24 +164,24 @@ for imu, mu in enumerate(muRng):
                                     fileFormat=fileFormat) 
 
         eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
-        eigCondTau.loc[iTauDim, :nevPlot-1] = eigenCondition[:nevPlot]
+        eigCondTau.loc[tauDim, :nevPlot-1] = eigenCondition[:nevPlot]
         
 
         # Get generator eigenvalues
-        eigValTau.loc[iTauDim, :nevPlot-1] = ((np.log(np.abs(eigValForward)) + \
-                                               np.angle(eigValForward)*1j) / tau)[:nevPlot]
+        eigValTau.loc[tauDim, :nevPlot-1] = ((np.log(np.abs(eigValForward)) + \
+                                              np.angle(eigValForward)*1j) / tau)[:nevPlot]
     eigValTauMu.append(eigValTau)
 
     eigSel = eigValTau.loc[:, 1].real
-    ax.plot(tauRng, eigSel, linewidth=lw, linestyle='-',
+    ax.plot(idx, eigSel, linewidth=lw, linestyle='-',
             color=colors[imu%len(colors)],
-            label=r'$\Re(\lambda_1), \mu = {:.1f}$'.format(mu))
+            label=r'$\Re(\lambda_1), \mu = {:.2f}$'.format(mu))
 for imu, mu in enumerate(muRng):
     eigValTau = eigValTauMu[imu]
     eigSel = eigValTau.loc[:, 3].real
-    ax.plot(tauRng, eigSel, linewidth=lw, linestyle='--',
+    ax.plot(idx, eigSel, linewidth=lw, linestyle='--',
             color=colors[imu%len(colors)],
-            label=r'$\Re(\lambda_3), \mu = {:.1f}$'.format(mu))
+            label=r'$\Re(\lambda_3), \mu = {:.2f}$'.format(mu))
 
 ax.legend(loc='lower right', ncol=2)
 ax.set_xlabel(r'$\tau$', fontsize=ergoPlot.fs_latex)
