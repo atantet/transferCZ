@@ -8,9 +8,9 @@ configFile = os.path.join('..', 'cfg', 'transferCZ.cfg')
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 
-timeFreq = 0.35 / 0.060 # integration frequency in months
+timeFreq = 0.35 / 0.060  # integration frequency in months
 timeScaleConversion = 1. / 12
-sampFreq = timeFreq / timeScaleConversion # sampling frequency in years
+sampFreq = timeFreq / timeScaleConversion  # sampling frequency in years
 dim = len(cfg.caseDef.indicesName)
 
 field_h = (1, 'Thermocline depth', 'h', 'm', cfg.dimension.H)
@@ -65,24 +65,24 @@ for s in np.arange(nSeeds):
     print('for seed {:d}'.format(seed))
     caseDir = '{}_seed{:d}'.format(outDir, seed)
     indicesPath = os.path.join(cfg.general.indicesDir, caseDir)
-    
+
     indexPath1 = os.path.join(indicesPath, indicesName[0][1] + '.txt')
     indexPath2 = os.path.join(indicesPath, indicesName[1][1] + '.txt')
-    
+
     # Read datasets
     indexData1 = np.loadtxt(indexPath1)
     timeFull1 = indexData1[spinup:, 0]
     observable1 = indexData1[spinup:, fieldsDef[0][0]]*fieldsDef[0][4]
-    
+
     indexData2 = np.loadtxt(indexPath2)
     timeFull2 = indexData2[spinup:, 0]
     observable2 = indexData2[spinup:, fieldsDef[1][0]]*fieldsDef[1][4]
-    
+
     nt = np.min([timeFull1.shape[0], timeFull2.shape[0]])
     time = timeFull1[:nt]
     observable1 = observable1[:nt]
     observable2 = observable2[:nt]
-    
+
     # Get corrSample averaged over seeds (should add weights based on length)
     # (do not normalize here, because we summup the seeds)
     corrSample += ergoStat.ccf(observable1, observable2,
@@ -97,7 +97,7 @@ for s in np.arange(nSeeds):
         nfft = freq.shape[0]
         powerSample = np.zeros((nfft,))
         powerSampleSTD = np.zeros((nfft,))
-                
+
     # Get powerSample averaged over seeds
     # (should add weights based on length)
     (freq, powerSampleSeed, powerSampleSTDSeed) \
@@ -106,7 +106,7 @@ for s in np.arange(nSeeds):
                             chunkWidth=cfg.stat.chunkWidth, norm=False)
     powerSample += powerSampleSeed
     powerSampleSTD += powerSampleSTDSeed**2 * nChunks
-            
+
 corrSample /= nSeeds
 powerSample /= nSeeds
 powerSampleSTD = np.sqrt(powerSampleSTD / (nSeeds * nChunks))
@@ -119,7 +119,7 @@ if cfg.stat.norm:
 # Save results
 np.savetxt(os.path.join(
     cfg.general.resDir, 'correlation', 'corrSample{}_lagMax{:d}yr.txt'.format(
-        dstPostfix,cfg.stat.lagMax)), corrSample)
+        dstPostfix, cfg.stat.lagMax)), corrSample)
 np.savetxt(os.path.join(
     cfg.general.resDir, 'correlation', 'lags{}_lagMax{:d}yr.txt'.format(
         dstPostfix, cfg.stat.lagMax)), lags)
@@ -131,8 +131,8 @@ np.savetxt(os.path.join(
         dstPostfix, cfg.stat.chunkWidth)), powerSampleSTD)
 np.savetxt(os.path.join(
     cfg.general.resDir, 'power', 'freq{}_chunk{:d}yr.txt'.format(
-        dstPostfix,cfg.stat.chunkWidth)), freq)
-        
+        dstPostfix, cfg.stat.chunkWidth)), freq)
+
 # Plot corrSample
 print('Plotting correlation function...')
 (fig, ax) = ergoPlot.plotCCF(corrSample, lags, plotPositive=True)

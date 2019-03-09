@@ -24,21 +24,27 @@ nev = cfg.spectrum.nev
 evPlot = np.array([0])
 plotForward = True
 plotBackward = False
-xmin = 24.5
-xmax = 29.
-ymin = 90.
-ymax = 160.
+if cfg.caseDef.mu >= 2.9:
+    xmin = 24.
+    xmax = 29.5
+    ymin = 80.
+    ymax = 180.
+else:
+    xmin = 25.
+    xmax = 27.
+    ymin = 100.
+    ymax = 130.
 cbar_format = '{:.2e}'
-evPlot = np.array([1, 2, 3, 4, 5, 6])
-plotForward = False
-plotBackward = True
-# xmin = None
-# xmax = None
-# ymin = None
-# ymax = None
-cbar_format = '{:.3e}'
-# plot_orbit = True
-plot_orbit = False
+# evPlot = np.array([1, 2, 3, 4, 5, 6])
+# plotForward = False
+# plotBackward = True
+# # xmin = None
+# # xmax = None
+# # ymin = None
+# # ymax = None
+# cbar_format = '{:.3e}'
+plot_orbit = True
+# plot_orbit = False
 
 # ampMin = 0.
 # ampMax = 0.07
@@ -46,9 +52,16 @@ plot_orbit = False
 ampMin = None
 ampMax = None
 nlevAmp = None
+orbit_color = '0.5'
+orbit_size = 48
+orbit_lw = 2
+
+
 def d_formatter(x, pos=None):
     fmt = '' if x % 1 > 1.e-6 else '{:.0f}'.format(x)
     return fmt
+
+
 xtick_formatter = d_formatter
 ytick_formatter = d_formatter
 
@@ -164,6 +177,23 @@ if plot_orbit:
     xorbit = np.concatenate([xo[:nt] for xo in xorbit], axis=1)
     it0 = int(xorbit.shape[0] * 0.99)
     xorbit = xorbit[it0:]
+    if np.var(xorbit[-1] - xorbit[-2]) < 1.e-8 * np.var(xorbit[-1]):
+        plot_orbit_scatter = True
+    else:
+        plot_orbit_scatter = False
+
+
+def plot_orbit(xorbit):
+    if plot_orbit:
+        # Add orbit
+        ax = fig.gca()
+        if plot_orbit_scatter:
+            ax.scatter(xorbit[:, 0], xorbit[:, 1], c=orbit_color, s=orbit_size,
+                       zorder=3)
+        else:
+            ax.plot(xorbit[:, 0], xorbit[:, 1], linestyle='-',
+                    linewidth=orbit_lw, color=orbit_color, zorder=3)
+
 
 # Plot eigenvectors of transfer operator
 alpha = 0.05
@@ -183,10 +213,7 @@ for ev in evPlot:
             xmax=xmax, ymin=ymin, ymax=ymax, xtick_formatter=xtick_formatter,
             ytick_formatter=ytick_formatter, cbar_format=cbar_format)
 
-        if plot_orbit:
-            # Add orbit
-            ax = fig.gca()
-            ax.plot(xorbit[:, 0], xorbit[:, 1], '-k', linewidth=2)
+        plot_orbit(xorbit)
 
         dstFile = '%s/eigvec/eigvecForwardPolar_nev%d_ev%03d%s.%s' \
                   % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
@@ -202,10 +229,7 @@ for ev in evPlot:
             xtick_formatter=xtick_formatter, ytick_formatter=ytick_formatter,
             cbar_format=cbar_format)
 
-        if plot_orbit:
-            # Add orbit
-            ax = fig.gca()
-            ax.plot(xorbit[:, 0], xorbit[:, 1], '-k', linewidth=2)
+        plot_orbit(xorbit)
 
         dstFile = '%s/eigvec/eigvecBackwardPolar_nev%d_ev%03d%s.%s' \
                   % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
