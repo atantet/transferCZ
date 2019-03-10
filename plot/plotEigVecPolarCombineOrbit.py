@@ -165,7 +165,7 @@ eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
 units = {'T': cfg.units.delta_T, 'h': cfg.units.H}
 if plot_orbit:
     dataDir = 'zc_1eof_mu{:04d}_eps0000_seed0'.format(
-        int(cfg.caseDef.mu * 1000 + 0.1), int(cfg.caseDef.eps * 1000 + 0.1))
+        int(cfg.caseDef.mu * 1000 + 0.1))
     indicesDir = cfg.general.indicesDir
     xorbit = []
     for idxName, fieldName in zip(
@@ -198,8 +198,9 @@ def plot_orbit(xorbit):
 # Plot eigenvectors of transfer operator
 alpha = 0.05
 csfilter = 0.5
-os.makedirs('{}/spectrum/eigvec'.format(cfg.general.plotDir), exist_ok=True)
-os.makedirs('{}/spectrum/reconstruction'.format(cfg.general.plotDir),
+os.makedirs(os.path.join(cfg.general.plotDir, 'spectrum', 'eigvec'),
+            exist_ok=True)
+os.makedirs(os.path.join(cfg.general.plotDir, 'spectrum', 'reconstruction'),
             exist_ok=True)
 for ev in evPlot:
     cmap = cm.hot_r if ev == 0 else cm.RdBu_r
@@ -215,8 +216,10 @@ for ev in evPlot:
 
         plot_orbit(xorbit)
 
-        dstFile = '%s/eigvec/eigvecForwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+        dstFile = os.path.join(
+            specDir, 'eigvec',
+            'eigvecForwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
+                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
     if plotBackward:
@@ -231,8 +234,10 @@ for ev in evPlot:
 
         plot_orbit(xorbit)
 
-        dstFile = '%s/eigvec/eigvecBackwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+        dstFile = os.path.join(
+            specDir, 'eigvec',
+            'eigvecBackwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
+                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
 
