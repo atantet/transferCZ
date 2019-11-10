@@ -180,7 +180,7 @@ int main(int argc, char * argv[])
     // Get spectrum
     try {
       // Solve eigen value problem with default configuration
-      transferSpec = new transferSpectrum(nev, transferOp, config);
+      transferSpec = new transferSpectrum(nev, transferOp, &config);
 
       if (getForwardEigenvectors) {
 	std::cout

@@ -140,7 +140,7 @@ readConfig(const char *configFileName)
     timeDim = L / c0 / (60. * 60. * 24); 
     std::cout << "Time dimension (days): " << timeDim << std::endl;
     field_h = fieldDef(1, "h", H);
-    field_T = fieldDef(2, "T", delta_T);
+    field_T = fieldDef(1, "T", delta_T);
 
     // Get caseDef settings
     std::cout << std::endl << "---caseDef---" << std::endl;

@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib import cm
 import pylibconfig2
 from ergoPack import ergoPlot
@@ -23,19 +24,27 @@ nev = cfg.spectrum.nev
 evPlot = np.array([0])
 plotForward = True
 plotBackward = False
-xmin = 24.5
-xmax = 29.
-ymin = 90.
-ymax = 160.
+if cfg.caseDef.mu >= 2.9:
+    xmin = 24.
+    xmax = 29.5
+    ymin = 80.
+    ymax = 180.
+else:
+    xmin = 25.
+    xmax = 27.
+    ymin = 100.
+    ymax = 130.
 cbar_format = '{:.2e}'
-evPlot = np.array([1, 2, 3, 4, 5, 6])
-plotForward = False
-plotBackward = True
-xmin = None
-xmax = None
-ymin = None
-ymax = None
-cbar_format = '{:.3e}'
+# evPlot = np.array([1, 2, 3, 4, 5, 6])
+# plotForward = False
+# plotBackward = True
+# # xmin = None
+# # xmax = None
+# # ymin = None
+# # ymax = None
+# cbar_format = '{:.3e}'
+plot_orbit = True
+# plot_orbit = False
 
 # ampMin = 0.
 # ampMax = 0.07
@@ -43,9 +52,16 @@ cbar_format = '{:.3e}'
 ampMin = None
 ampMax = None
 nlevAmp = None
+orbit_color = '0.5'
+orbit_size = 48
+orbit_lw = 2
+
+
 def d_formatter(x, pos=None):
     fmt = '' if x % 1 > 1.e-6 else '{:.0f}'.format(x)
     return fmt
+
+
 xtick_formatter = d_formatter
 ytick_formatter = d_formatter
 
@@ -145,11 +161,46 @@ eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
 eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
 
 
+# Read orbit
+units = {'T': cfg.units.delta_T, 'h': cfg.units.H}
+if plot_orbit:
+    dataDir = 'zc_1eof_mu{:04d}_eps0000_seed0'.format(
+        int(cfg.caseDef.mu * 1000 + 0.1))
+    indicesDir = cfg.general.indicesDir
+    xorbit = []
+    for idxName, fieldName in zip(
+            cfg.caseDef.indicesName, cfg.caseDef.fieldsName):
+        filePath = os.path.join(indicesDir, dataDir, idxName + '.txt')
+        xorbit.append(np.expand_dims(
+            np.loadtxt(filePath)[:, 1] * units[fieldName], axis=1))
+    nt = np.min([xo.shape[0] for xo in xorbit])
+    xorbit = np.concatenate([xo[:nt] for xo in xorbit], axis=1)
+    it0 = int(xorbit.shape[0] * 0.99)
+    xorbit = xorbit[it0:]
+    if np.var(xorbit[-1] - xorbit[-2]) < 1.e-8 * np.var(xorbit[-1]):
+        plot_orbit_scatter = True
+    else:
+        plot_orbit_scatter = False
+
+
+def plot_orbit(xorbit):
+    if plot_orbit:
+        # Add orbit
+        ax = fig.gca()
+        if plot_orbit_scatter:
+            ax.scatter(xorbit[:, 0], xorbit[:, 1], c=orbit_color, s=orbit_size,
+                       zorder=3)
+        else:
+            ax.plot(xorbit[:, 0], xorbit[:, 1], linestyle='-',
+                    linewidth=orbit_lw, color=orbit_color, zorder=3)
+
+
 # Plot eigenvectors of transfer operator
 alpha = 0.05
 csfilter = 0.5
-os.makedirs('{}/spectrum/eigvec'.format(cfg.general.plotDir), exist_ok=True)
-os.makedirs('{}/spectrum/reconstruction'.format(cfg.general.plotDir),
+os.makedirs(os.path.join(cfg.general.plotDir, 'spectrum', 'eigvec'),
+            exist_ok=True)
+os.makedirs(os.path.join(cfg.general.plotDir, 'spectrum', 'reconstruction'),
             exist_ok=True)
 for ev in evPlot:
     cmap = cm.hot_r if ev == 0 else cm.RdBu_r
@@ -163,8 +214,12 @@ for ev in evPlot:
             xmax=xmax, ymin=ymin, ymax=ymax, xtick_formatter=xtick_formatter,
             ytick_formatter=ytick_formatter, cbar_format=cbar_format)
 
-        dstFile = '%s/eigvec/eigvecForwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+        plot_orbit(xorbit)
+
+        dstFile = os.path.join(
+            specDir, 'eigvec',
+            'eigvecForwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
+                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
     if plotBackward:
@@ -176,7 +231,14 @@ for ev in evPlot:
             xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax,
             xtick_formatter=xtick_formatter, ytick_formatter=ytick_formatter,
             cbar_format=cbar_format)
-        dstFile = '%s/eigvec/eigvecBackwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+
+        plot_orbit(xorbit)
+
+        dstFile = os.path.join(
+            specDir, 'eigvec',
+            'eigvecBackwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
+                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
         fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
+
+plt.show(block=False)
