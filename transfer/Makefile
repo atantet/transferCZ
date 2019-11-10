@@ -1,11 +1,11 @@
 INCDIR=-I$(HOME)/.local/include/
 LIBDIR=-L$(HOME)/.local/lib/
-LIBS=-lgsl -lconfig++ -lergopack
+LIBS=-lgsl -lconfig++ -lergopack -lgslcblas -larpack
 
 CC=g++
 WARN=-Wall -Wformat=0
 CFLAGS=$(WARN) -pedantic-errors -O3
-LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSSTD=
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 WITH_OMP=1
 
