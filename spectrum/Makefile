@@ -1,15 +1,13 @@
-INCDIR=-I$(HOME)/.local/include/ -I/opt/local/include/
-LIBDIR=-L$(HOME)/.local/lib/ -L/opt/local/lib/
-LIBS=-lgsl -lconfig++ -lopenblas -larpack -lergopack
+INCDIR=-I$(HOME)/.local/include/
+LIBDIR=-L$(HOME)/.local/lib/
+LIBS=-lergopack -larpack -lgsl -lgslcblas -lconfig++ -lgomp -lgfortran -lopenblas
 
 CC=g++
 WARN=-Wall -Wformat=0
-CFLAGS=$(WARN) -pedantic-errors -O3
-LDFLAGSSTD=-undefined dynamic_lookup
-LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+CFLAGS=$(WARN) -O3
+LDFLAGSSTD=
 
 LDFLAGS=$(LDFLAGSSTD)
-#LDFLAGS=$(LDFLAGSGDB)
 
 EXE=spectrumCZ
 

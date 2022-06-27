@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection
 import itertools
 import pylibconfig2
-import ergoPlot
+import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -61,7 +61,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-(X, Y) = ergoPlot.readGrid(gridFile, dim)
+(X, Y) = ergoplot.readGrid(gridFile, dim)
 coord = (X.flatten(), Y.flatten())
 
 if hasattr(cfg.transfer, "tauDimRng"):
@@ -104,14 +104,14 @@ for lag in np.arange(nLags):
     # of eigenvectors and adjoint eigenvectors:
     print 'Readig spectrum of tau = ', tau
     (eigValForward, eigVecForward, eigValBackward, eigVecBackward) \
-        = ergoPlot.readSpectrum(cfg.spectrum.nev, EigValForwardFile, EigVecForwardFile,
+        = ergoplot.readSpectrum(cfg.spectrum.nev, EigValForwardFile, EigVecForwardFile,
                                 EigValBackwardFile, EigVecBackwardFile, statDist)
     # Save eigenvalues
     eigVal[lag] = eigValForward.copy()
     # Get generator eigenvalues
     eigValGen[lag] = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tauConv
     # Get condition number
-    eigenCondition[lag] = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
+    eigenCondition[lag] = ergoplot.getEigenCondition(eigVecForward, eigVecBackward,
                                                      statDist)
 
     print 'lag ', lag

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 from matplotlib import cm
 import os
 
@@ -90,7 +90,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 # Read grid
 fileName = 'grid{}.txt'.format(gridPostfix)
 gridFilePath = os.path.join(cfg.general.resDir, 'grid', fileName)
-coord = ergoPlot.readGrid(gridFilePath, dimObs)
+coord = ergoplot.readGrid(gridFilePath, dimObs)
 
 # Coordinate matrices read in 'ij' indexing (not 'xy')!
 if dimObs == 1:
@@ -144,13 +144,13 @@ NFilled = np.max(mask[mask < N]) + 1
 # of eigenvectors and backward eigenvectors:
 print('Readig spectrum for tauDim = {:.3f}...'.format(tauDim))
 (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+    = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
                             fileFormat=fileFormat) 
 
 print('Getting conditionning of eigenvectors...')
-eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
+eigenCondition = ergoplot.getEigenCondition(eigVecForward, eigVecBackward)
 
 # Get generator eigenvalues
 eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
@@ -172,90 +172,90 @@ for ev in np.arange(nevPlot):
         if plotForward:
             print('Plotting polar eigenvector {:d}...'.format(ev + 1))
             (figPhase, figAmp) \
-                = ergoPlot.plotEigVecPolar(X, Y, eigVecForward[ev],
+                = ergoplot.plotEigVecPolar(X, Y, eigVecForward[ev],
                                            mask=mask, combine=False,
                                            xlabel=ev_xlabel, ylabel=ev_ylabel,
                                            alpha=alpha, cmap=cmap,
                                            ampMin=ampMin, ampMax=ampMax)
             fileName = 'eigvecForwardPhase_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFilePhase = os.path.join(specDir, 'eigvec', fileName)
             fileName = 'eigvecForwardAmp_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFileAmp = os.path.join(specDir, 'eigvec', fileName)
-            figPhase.savefig(dstFilePhase, bbox_inches=ergoPlot.bbox_inches,
-                           dpi=ergoPlot.dpi)
-            figAmp.savefig(dstFileAmp, bbox_inches=ergoPlot.bbox_inches,
-                           dpi=ergoPlot.dpi)
+            figPhase.savefig(dstFilePhase, bbox_inches=ergoplot.bbox_inches,
+                           dpi=ergoplot.dpi)
+            figAmp.savefig(dstFileAmp, bbox_inches=ergoplot.bbox_inches,
+                           dpi=ergoplot.dpi)
         if plotBackward:
             print('Plotting polar backward eigenvector {:d}...'.format(ev + 1))
             (figPhase, figAmp) \
-                = ergoPlot.plotEigVecPolar(X, Y, eigVecBackward[ev],
+                = ergoplot.plotEigVecPolar(X, Y, eigVecBackward[ev],
                                            mask=mask, combine=False,
                                            xlabel=ev_xlabel, ylabel=ev_ylabel,
                                            alpha=alpha, cmap=cmap,
                                            ampMin=ampMin, ampMax=ampMax)
             fileName = 'eigvecBackwardPhase_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFilePhase = os.path.join(specDir, 'eigvec', fileName)
             fileName = 'eigvecBackwardAmp_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFileAmp = os.path.join(specDir, 'eigvec', fileName)
-            figPhase.savefig(dstFilePhase, bbox_inches=ergoPlot.bbox_inches,
-                           dpi=ergoPlot.dpi)
-            figAmp.savefig(dstFileAmp, bbox_inches=ergoPlot.bbox_inches,
-                           dpi=ergoPlot.dpi)
+            figPhase.savefig(dstFilePhase, bbox_inches=ergoplot.bbox_inches,
+                           dpi=ergoplot.dpi)
+            figAmp.savefig(dstFileAmp, bbox_inches=ergoplot.bbox_inches,
+                           dpi=ergoplot.dpi)
 
     else:
         if plotForward:
             print('Plotting real part of forward eigenvector {:d}...'.format(ev + 1))
-            fig = ergoPlot.plotEigVec(X, Y, eigVecForward[ev].real,
+            fig = ergoplot.plotEigVec(X, Y, eigVecForward[ev].real,
                                       xlabel=ev_xlabel, ylabel=ev_ylabel,
                                       mask=mask, alpha=alpha,
                                       positive=positive, cmap=cmap)
             fileName = 'eigvecForwardReal_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFile = os.path.join(specDir, 'eigvec', fileName)
-            fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                        dpi=ergoPlot.dpi)
+            fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                        dpi=ergoplot.dpi)
             if plotImag & (eigValForward[ev].imag != 0):
                 print('Plotting imaginary part of forward eigenvector',
                       '{:d}...'.format(ev + 1))
-                fig = ergoPlot.plotEigVec(X, Y, eigVecForward[ev].imag,
+                fig = ergoplot.plotEigVec(X, Y, eigVecForward[ev].imag,
                                           mask=mask, cmap=cmap,
                                           xlabel=ev_xlabel, ylabel=ev_ylabel,
                                           positive=positive, alpha=alpha)
                 fileName = 'eigvecForwardImag_nev{:d}_ev{:03d}{}.{}'.format(
-                    nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                    nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
                 dstFile = os.path.join(specDir, 'eigvec', fileName)
-                fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                            dpi=ergoPlot.dpi)
+                fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                            dpi=ergoplot.dpi)
     
         # Plot eigenvectors of backward operator
         if plotBackward:
             print('Plotting real part of backward eigenvector {:d}...'.format(ev + 1))
-            fig = ergoPlot.plotEigVec(X, Y, eigVecBackward[ev].real,
+            fig = ergoplot.plotEigVec(X, Y, eigVecBackward[ev].real,
                                       mask=mask, cmap=cmap,
                                       xlabel=ev_xlabel, ylabel=ev_ylabel,
                                       positive=positive, alpha=alpha)
             fileName = 'eigvecBackwardReal_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
             dstFile = os.path.join(specDir, 'eigvec', fileName)
-            fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                        dpi=ergoPlot.dpi)
+            fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                        dpi=ergoplot.dpi)
             
             if plotImag & (eigValForward[ev].imag != 0):
                 print('Plotting imag. part of backward eigenvector',
                       '{:d}...'.format(ev + 1))
-                fig = ergoPlot.plotEigVec(X, Y, eigVecBackward[ev].imag,
+                fig = ergoplot.plotEigVec(X, Y, eigVecBackward[ev].imag,
                                           mask=mask, cmap=cmap,
                                           xlabel=ev_xlabel, ylabel=ev_ylabel,
                                           positive=positive, alpha=alpha)
                 fileName = 'eigvecBackwardImag_nev{:d}_ev{:03d}{}.{}'.format(
-                    nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
+                    nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
                 dstFile = os.path.join(specDir, 'eigvec', fileName)
-                fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                            dpi=ergoPlot.dpi)
+                fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                            dpi=ergoplot.dpi)
 
             
 # Define observables
@@ -307,7 +307,7 @@ powerSample /= 2*np.pi
 
 # Reconstruct correlation and power spectrum
 # Get normalized weights
-weights = ergoPlot.getSpectralWeights(f, g, eigVecForward, eigVecBackward)
+weights = ergoplot.getSpectralWeights(f, g, eigVecForward, eigVecBackward)
 
 # Remove components with heigh condition number
 weights[eigenCondition > cfg.stat.maxCondition] = 0.
@@ -316,21 +316,21 @@ weights[eigenCondition > cfg.stat.maxCondition] = 0.
 condition = np.empty(eigenCondition.shape, dtype='|U1')
 condition[:] = 'k'
 condition[eigenCondition > cfg.stat.maxCondition - 0.001] = 'w'
-(corrRec, compCorrRec) = ergoPlot.spectralRecCorrelation(lags, eigValGen,
+(corrRec, compCorrRec) = ergoplot.spectralRecCorrelation(lags, eigValGen,
                                                          weights,
                                                          norm=cfg.stat.norm)
-(powerRec, compPowerRec) = ergoPlot.spectralRecPower(angFreq, eigValGen,
+(powerRec, compPowerRec) = ergoplot.spectralRecPower(angFreq, eigValGen,
                                                      weights,
                                                      norm=cfg.stat.norm)
 
 # Plot correlation reconstruction
-fig = ergoPlot.plotRecCorrelation(lags, corrSample, corrRec,
+fig = ergoplot.plotRecCorrelation(lags, corrSample, corrRec,
                                   plotPositive=True,
                                   ylabel=corrLabel, xlabel=xlabelCorr)
 fileName = '{}Rec_lag{:d}_nev{:d}{}.{}'.format(
-    corrName, int(cfg.stat.lagMax), nev, dstPostfixTau, ergoPlot.figFormat)
+    corrName, int(cfg.stat.lagMax), nev, dstPostfixTau, ergoplot.figFormat)
 filePath = os.path.join(specDir, 'reconstruction', fileName)
-fig.savefig(filePath, dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+fig.savefig(filePath, dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 
 # PLot spectrum, powerSampledogram and spectral reconstruction
 w = weights.copy()
@@ -342,16 +342,16 @@ msize[w.real > 0] = (msize[w.real > 0] + 8) * 10
 # msize[w.real > 0] = (msize[w.real > 0] + 6) * 3
 msize[msize < 0] = 0.
 msize[0] = 12.
-fig = ergoPlot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
+fig = ergoplot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
                                markersize=msize, condition=condition,
                                xlabel=realLabel, ylabel=imagLabel,
                                zlabel=powerLabel,
                                xlim=xlimEig, ylim=ylimEig, zlim=zlimEig,
                                xticks=xticks, yticks=yticks, zticks=zticks)
 fileName = '{}Rec_chunk{:d}_nev{:d}{}.{}'.format(
-    powerName, int(cfg.stat.chunkWidth), nev, dstPostfixTau, ergoPlot.figFormat)
+    powerName, int(cfg.stat.chunkWidth), nev, dstPostfixTau, ergoplot.figFormat)
 filePath = os.path.join(specDir, 'reconstruction', fileName)
-fig.savefig(filePath, dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+fig.savefig(filePath, dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 
 nw = weights[1:]
 nw /= nw.sum()

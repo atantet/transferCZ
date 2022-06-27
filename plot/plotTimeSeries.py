@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -17,7 +17,7 @@ time_dim = cfg.units.L / cfg.units.c0 * second_to_year
 cases = {'Deterministic': 0., 'Stochastic': 0.01}
 
 field_h = (1, 'H', 'h', 'm')
-field_T = (2, 'SST', 'T', r'$^\circ C$')
+field_T = (2, 'SST', 'T', r'$^\circ$C')
 field_u_A = (3, 'wind stress due to coupling', 'u_A', 'm/s')
 field_taux = (4, 'external wind-stress', 'taux', 'm/s')
 
@@ -105,14 +105,16 @@ for k, case in enumerate(tss):
     ax.plot(ts[time_slice, 0], ts[time_slice, 1], linestyle=lss[k],
             linewidth=lws[k], color=colors[k], label=case)
 ax.set_xticks(xticks)
-ax.set_xlabel(ev_xlabel, fontsize=ergoPlot.fs_xlabel)
-ax.set_ylabel(ev_ylabel, fontsize=ergoPlot.fs_ylabel)
-plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
-plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
-ax.legend(loc='upper left', fontsize=ergoPlot.fs_legend_labels)
+ax.set_xlabel(ev_xlabel, fontsize=ergoplot.fs_xlabel)
+ax.set_ylabel(ev_ylabel, fontsize=ergoplot.fs_ylabel)
+plt.setp(ax.get_xticklabels(), fontsize=ergoplot.fs_xticklabels)
+plt.setp(ax.get_yticklabels(), fontsize=ergoplot.fs_yticklabels)
+ax.legend(loc='upper left', fontsize=ergoplot.fs_legend_labels)
 series_dir = os.path.join(cfg.general.plotDir, 'series')
 os.makedirs(series_dir, exist_ok=True)
 dstFile = os.path.join(
-    series_dir, 'series{}.{}'.format(dstPostfix, ergoPlot.figFormat))
-fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-            dpi=ergoPlot.dpi)
+    series_dir, 'series{}.{}'.format(dstPostfix, ergoplot.figFormat))
+fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+            dpi=ergoplot.dpi)
+
+plt.show(block=False)

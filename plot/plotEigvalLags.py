@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 from matplotlib import cm, rcParams
 import os
 import pandas as pd
@@ -86,7 +86,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 # Read grid
 fileName = 'grid{}.txt'.format(gridPostfix)
 gridFilePath = os.path.join(cfg.general.resDir, 'grid', fileName)
-coord = ergoPlot.readGrid(gridFilePath, dimObs)
+coord = ergoplot.readGrid(gridFilePath, dimObs)
 
 # Coordinate matrices read in 'ij' indexing (not 'xy')!
 if dimObs == 1:
@@ -148,13 +148,13 @@ for ktau, tauDim in enumerate(cfg.transfer.tauDimRng):
     # of eigenvectors and backward eigenvectors:
     print('Readig spectrum for tauDim = {:.3f}...'.format(tauDim))
     (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-        = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+        = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                                 eigVecForwardFile, eigVecBackwardFile,
                                 makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
                                 fileFormat=fileFormat) 
 
     print('Getting conditionning of eigenvectors...')
-    eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
+    eigenCondition = ergoplot.getEigenCondition(eigVecForward, eigVecBackward)
     eigCondTau.loc[iTauDim, :nevPlot-1] = eigenCondition[:nevPlot]
         
 
@@ -170,8 +170,8 @@ ls = '-'
 for iev in range(nev):
     ax.plot(tauRng, eigValTau.loc[:, iev].real, linewidth=lw, linestyle=ls,
             color=colors[iev%len(colors)])
-ax.set_xlabel(r'$\tau$', fontsize=ergoPlot.fs_latex)
-ax.set_ylabel(r'$\mathrm{Re}(\lambda_k)(\tau)$', fontsize=ergoPlot.fs_latex)
+ax.set_xlabel(r'$\tau$', fontsize=ergoplot.fs_latex)
+ax.set_ylabel(r'$\mathrm{Re}(\lambda_k)(\tau)$', fontsize=ergoplot.fs_latex)
 ax.set_ylim(-1., 0.)
 
 fig = plt.figure()
@@ -181,8 +181,8 @@ ls = '-'
 for iev in range(nev):
     ax.plot(tauRng, eigCondTau.loc[:, iev].real, linewidth=lw, linestyle=ls,
             color=colors[iev%len(colors)])
-ax.set_xlabel(r'$\tau$', fontsize=ergoPlot.fs_latex)
-ax.set_ylabel(r'$\sigma(\lambda_k)(\tau)$', fontsize=ergoPlot.fs_latex)
+ax.set_xlabel(r'$\tau$', fontsize=ergoplot.fs_latex)
+ax.set_ylabel(r'$\sigma(\lambda_k)(\tau)$', fontsize=ergoplot.fs_latex)
 ax.set_ylim(1., 5.)
 
 plt.show(block=False)

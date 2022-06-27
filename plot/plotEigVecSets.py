@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 sys.path.append('../cfg/')
 from coupledRO import *
-from ergoPack.ergoInt import *
+from ergopack.ergoInt import *
 
-#figFormat = ergoPlot.figFormat
+#figFormat = ergoplot.figFormat
 figFormat = 'png'
 
 direct = 'Forward'
@@ -67,7 +67,7 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.maxInitState[d])
 gridFile = '%s/grid/grid_%s%s.txt' \
            % (cfg.general.resDir, caseName, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
+coord = ergoplot.readGrid(gridFile, dimObs)
 xyz = np.zeros((coord[0].shape[0], 3))
 xyz[:, 0] = coord[0]
 xyz[:, 1] = coord[1]
@@ -179,11 +179,11 @@ _L%d_spinup%d_dt%d_samp%d" \
     # of eigenvectors and backward eigenvectors:
     if direct == 'Forward':
         (eigVal, eigVec) \
-            = ergoPlot.readSpectrum(eigValForwardFile=eigValFile,
+            = ergoplot.readSpectrum(eigValForwardFile=eigValFile,
                                     eigVecForwardFile=eigVecFile)
     if direct == 'Backward':
         (eigVal, eigVec) \
-            = ergoPlot.readSpectrum(eigValBackwardFile=eigValFile,
+            = ergoplot.readSpectrum(eigValBackwardFile=eigValFile,
                                     eigVecBackwardFile=eigVecFile)
     eigVec = eigVec.T
     nev = eigVal.shape[0]
@@ -201,7 +201,7 @@ _L%d_spinup%d_dt%d_samp%d" \
         v0 = eigVec[:, 0] / eigVec[:, 0].sum()
         vec = eigVec[:, ev] # / v0
         # vec /= np.max(np.abs(vec))
-        ergoPlot.plotEigVecPolarCombine(X, Y, vec, mask,
+        ergoplot.plotEigVecPolarCombine(X, Y, vec, mask,
                                         xlabel=ev_xlabel, ylabel=ev_ylabel,
                                         alpha=alpha, cmap=cmap, csfmt=csfmt,
                                         ampMin=ampMin, ampMax=ampMax, nlevAmp=nlevAmp)
@@ -215,4 +215,4 @@ _L%d_spinup%d_dt%d_samp%d" \
         #, xlim=xlimEV, ylim=ylimEV)
         dstFile = '%s/spectrum/eigvec/eigvec%sPolar_ev%03d%s.%s' \
             % (cfg.general.plotDir, direct, ev + 1, postfixTau, figFormat)
-        plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
+        plt.savefig(dstFile, bbox_inches=ergoplot.bbox_inches, dpi=ergoplot.dpi)

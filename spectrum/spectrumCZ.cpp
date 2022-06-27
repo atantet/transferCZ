@@ -50,6 +50,7 @@ double mu;
 double eps;
 gsl_vector_uint *seedRng;
 size_t nSeeds;
+char seedPostfix[256];
 char obsName[256];
 char srcPostfix[256];
 // Simulation
@@ -109,7 +110,7 @@ int main(int argc, char * argv[])
     EigValBackwardFileName[256], EigVecBackwardFileName[256];
   transferSpectrum *transferSpec;
   
-  sprintf(dstPostfix, "%s", gridPostfix);
+  sprintf(dstPostfix, "%s%s", gridPostfix, seedPostfix);
 
   
   // Scan transition matrices and distributions for different lags

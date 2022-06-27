@@ -64,6 +64,7 @@ double mu;
 double eps;
 gsl_vector_uint *seedRng;
 size_t nSeeds;
+char seedPostfix[256];
 char obsName[256];
 char srcPostfix[256];
 // Simulation
@@ -145,7 +146,6 @@ int main(int argc, char * argv[])
   // Get membership vector
   if (! readGridMem) {
     for (size_t seed = 0; seed < nSeeds; seed++) {
-      
       // Read observable
       sprintf(srcPostfixSeed, "%s_seed%d", srcPostfix, (int) seed);
       for (size_t d = 0; d < DIM; d++){
@@ -207,9 +207,10 @@ int main(int argc, char * argv[])
     }
     // Define grid
     grid = new RegularGrid(nx, xmin, xmax);
+
     // Print grid
     grid->printGrid(gridFileName, "%.12lf", true);
-    sprintf(dstPostfix, "%s", gridPostfix);
+    sprintf(dstPostfix, "%s%s", gridPostfix, seedPostfix);
 
     // Get grid membership for each seed
     for (size_t seed = 0; seed < nSeeds; seed++){

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-from ergoPack import ergoPlot, ergoStat
+from ergopack import ergoplot, ergostat
 
 configFile = os.path.join('..', 'cfg', 'transferCZ.cfg')
 cfg = pylibconfig2.Config()
@@ -85,14 +85,14 @@ for s in np.arange(nSeeds):
 
     # Get corrSample averaged over seeds (should add weights based on length)
     # (do not normalize here, because we summup the seeds)
-    corrSample += ergoStat.ccf(observable1, observable2,
+    corrSample += ergostat.ccf(observable1, observable2,
                                lagMax=cfg.stat.lagMax,
                                sampFreq=sampFreq, norm=False)
 
     # Get common frequencies
     if s == 0:
         nChunks = int(nt / (cfg.stat.chunkWidth * sampFreq))
-        freq = ergoStat.getFreqPow2(cfg.stat.chunkWidth,
+        freq = ergostat.getFreqPow2(cfg.stat.chunkWidth,
                                     sampFreq=sampFreq)
         nfft = freq.shape[0]
         powerSample = np.zeros((nfft,))
@@ -101,7 +101,7 @@ for s in np.arange(nSeeds):
     # Get powerSample averaged over seeds
     # (should add weights based on length)
     (freq, powerSampleSeed, powerSampleSTDSeed) \
-        = ergoStat.getPerio(observable1, observable2,
+        = ergostat.getPerio(observable1, observable2,
                             freq=freq, sampFreq=sampFreq,
                             chunkWidth=cfg.stat.chunkWidth, norm=False)
     powerSample += powerSampleSeed
@@ -135,23 +135,23 @@ np.savetxt(os.path.join(
 
 # Plot corrSample
 print('Plotting correlation function...')
-(fig, ax) = ergoPlot.plotCCF(corrSample, lags, plotPositive=True)
+(fig, ax) = ergoplot.plotCCF(corrSample, lags, plotPositive=True)
 plt.savefig(os.path.join(
     cfg.general.plotDir, 'correlation', 'corrSample{}_lagMax{:d}yr.{}'.format(
-        dstPostfix, cfg.stat.lagMax, ergoPlot.figFormat)),
-            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+        dstPostfix, cfg.stat.lagMax, ergoplot.figFormat)),
+            dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 
 # Plot powerSample
 print('Plotting periodogram...')
 angFreq = freq * 2 * np.pi
-(fig, ax) = ergoPlot.plotPerio(powerSample, perioSTD=powerSampleSTD,
+(fig, ax) = ergoplot.plotPerio(powerSample, perioSTD=powerSampleSTD,
                                freq=angFreq,  plotPositive=True,
                                absUnit='', yscale='log',
                                xlim=(0, cfg.stat.angFreqMax),
                                ylim=(cfg.stat.powerMin, cfg.stat.powerMax))
 fig.savefig(os.path.join(
     cfg.general.plotDir, 'power', 'powerSample{}_chunk{:d}yr.{}'.format(
-        dstPostfix, cfg.stat.chunkWidth, ergoPlot.figFormat)),
-            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+        dstPostfix, cfg.stat.chunkWidth, ergoplot.figFormat)),
+            dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 
 plt.show(block=False)

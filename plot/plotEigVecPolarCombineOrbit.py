@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -18,12 +18,22 @@ else:
 
 timeScaleConversion = 1. / 12
 dimObs = len(cfg.caseDef.indicesName)
+# Seed postfix
 nSeeds = len(cfg.caseDef.seedRng)
+seedPostfix = '_seeds' + ''.join(str(s) for s in cfg.caseDef.seedRng)
 
 nev = cfg.spectrum.nev
-evPlot = np.array([0])
-plotForward = True
-plotBackward = False
+
+# evPlot = np.array([0])
+# plotForward = True
+# plotBackward = False
+# cbar_format = '{:.2e}'
+
+evPlot = np.array([1, 2, 3, 4, 5, 6])
+plotForward = False
+plotBackward = True
+cbar_format = '{:.3e}'
+
 if cfg.caseDef.mu >= 2.9:
     xmin = 24.
     xmax = 29.5
@@ -34,15 +44,6 @@ else:
     xmax = 27.
     ymin = 100.
     ymax = 130.
-cbar_format = '{:.2e}'
-# evPlot = np.array([1, 2, 3, 4, 5, 6])
-# plotForward = False
-# plotBackward = True
-# # xmin = None
-# # xmax = None
-# # ymin = None
-# # ymax = None
-# cbar_format = '{:.3e}'
 plot_orbit = True
 # plot_orbit = False
 
@@ -66,7 +67,7 @@ xtick_formatter = d_formatter
 ytick_formatter = d_formatter
 
 field_h = (1, 'H', 'h', 'm')
-field_T = (2, 'SST', 'T', r'$^\circ C$')
+field_T = (2, 'SST', 'T', r'$^\circ$C')
 field_u_A = (3, 'wind stress due to coupling', 'u_A', 'm/s')
 field_taux = (4, 'external wind-stress', 'taux', 'm/s')
 
@@ -106,7 +107,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
+coord = ergoplot.readGrid(gridFile, dimObs)
 
 # Coordinate matrices read in 'ij' indexing (not 'xy')!
 if dimObs == 1:
@@ -119,19 +120,19 @@ elif dimObs == 3:
     coord = (X.flatten(), Y.flatten(), Z.flatten())
 
 tau = tauDim * timeScaleConversion
-dstPostfix = gridPostfix
-dstPostfixTau = "%s_tau%03d" % (gridPostfix, int(tauDim * 1000 + 0.1))
+dstPostfix = '{}{}'.format(gridPostfix, seedPostfix)
+dstPostfixTau = "%s_tau%03d" % (dstPostfix, int(tauDim * 1000 + 0.1))
 specDir = '%s/spectrum/' % cfg.general.plotDir
 
 # File names
-eigValForwardFile = '%s/eigval/eigValForward_nev%d%s.%s' \
+eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
                     % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
-eigVecForwardFile = '%s/eigvec/eigVecForward_nev%d%s.%s' \
+eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
     % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
-eigValBackwardFile = '%s/eigval/eigValBackward_nev%d%s.%s' \
-                    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
-eigVecBackwardFile = '%s/eigvec/eigVecBackward_nev%d%s.%s' \
-                    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
+eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
+    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
+eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
+    % (cfg.general.specDir, nev, dstPostfixTau, fileFormat)
 maskFile = '%s/transfer/mask/mask%s.%s' \
            % (cfg.general.resDir, dstPostfix, fileFormat)
 
@@ -149,13 +150,13 @@ NFilled = np.max(mask[mask < N]) + 1
 # of eigenvectors and backward eigenvectors:
 print('Readig spectrum for tauDim = {:.3f}...'.format(tauDim))
 (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+    = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
                             fileFormat=fileFormat)
 
 print('Getting conditionning of eigenvectors...')
-eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
+eigenCondition = ergoplot.getEigenCondition(eigVecForward, eigVecBackward)
 
 # Get generator eigenvalues
 eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
@@ -207,7 +208,7 @@ for ev in evPlot:
 
     if plotForward:
         print('Plotting polar eigenvector {:d}...'.format(ev + 1))
-        fig = ergoPlot.plotEigVecPolarCombine(
+        fig = ergoplot.plotEigVecPolarCombine(
             X, Y, eigVecForward[ev], mask=mask, xlabel=ev_xlabel,
             ylabel=ev_ylabel, alpha=alpha, cmap=cmap, ampMin=ampMin,
             ampMax=ampMax, nlevAmp=nlevAmp, csfilter=csfilter, xmin=xmin,
@@ -219,12 +220,12 @@ for ev in evPlot:
         dstFile = os.path.join(
             specDir, 'eigvec',
             'eigvecForwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
-        fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                    dpi=ergoPlot.dpi)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat))
+        fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                    dpi=ergoplot.dpi)
     if plotBackward:
         print('Plotting polar backward eigenvector {:d}...'.format(ev + 1))
-        fig = ergoPlot.plotEigVecPolarCombine(
+        fig = ergoplot.plotEigVecPolarCombine(
             X, Y, eigVecBackward[ev], mask=mask, xlabel=ev_xlabel,
             ylabel=ev_ylabel, alpha=alpha, cmap=cmap, ampMin=ampMin,
             ampMax=ampMax, nlevAmp=nlevAmp, csfilter=csfilter,
@@ -237,8 +238,8 @@ for ev in evPlot:
         dstFile = os.path.join(
             specDir, 'eigvec',
             'eigvecBackwardPolar_nev{:d}_ev{:03d}{}.{}'.format(
-                nev, ev + 1, dstPostfixTau, ergoPlot.figFormat))
-        fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                    dpi=ergoPlot.dpi)
+                nev, ev + 1, dstPostfixTau, ergoplot.figFormat))
+        fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                    dpi=ergoplot.dpi)
 
 plt.show(block=False)

@@ -67,6 +67,7 @@ extern double mu;
 extern double eps;
 extern gsl_vector_uint *seedRng;
 extern size_t nSeeds;
+extern char seedPostfix[256];
 extern char obsName[256];
 extern char srcPostfix[256];
 // Simulation
@@ -171,8 +172,11 @@ readConfig(const char *configFileName)
     const Setting &seedRngSetting = cfg.lookup("caseDef.seedRng");
     nSeeds = seedRngSetting.getLength();
     seedRng = gsl_vector_uint_alloc(nSeeds);
+    strcpy(seedPostfix, "_seeds");
     std::cout << "seedRng = {";
     for (size_t seed = 0; seed < nSeeds; seed++) {
+      strcpy(cpyBuffer, seedPostfix);
+      sprintf(seedPostfix, "%s%d", cpyBuffer, (int) seedRngSetting[seed]);
       gsl_vector_uint_set(seedRng, seed, seedRngSetting[seed]);
       std::cout << gsl_vector_uint_get(seedRng, seed) << ", ";
     }

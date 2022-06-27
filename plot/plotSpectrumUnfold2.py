@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-import ergoPlot
+import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -95,7 +95,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
+coord = ergoplot.readGrid(gridFile, dimObs)
 if dimObs == 1:
     X = coord[0]
 elif dimObs == 2:
@@ -130,14 +130,14 @@ if unfold:
 # of eigenvectors and backward eigenvectors:
 print 'Readig spectrum for tauDim = %.3f...' % tauDim
 (eigValForward, eigValBackward, statDist, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile, statDistFile,
+    = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile, statDistFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal)
 
 print 'Getting conditionning of eigenvectors...'
-eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward, statDist)
+eigenCondition = ergoplot.getEigenCondition(eigVecForward, eigVecBackward, statDist)
 
-eigValGenOrig = ergoPlot.eig2Generator(eigValForward, tau)
+eigValGenOrig = ergoplot.eig2Generator(eigValForward, tau)
 
 # Read unfolding eigenvalues
 #eigValForwardUnfold = None
@@ -146,7 +146,7 @@ st2 = np.concatenate((st, st))
 if unfold:
     print 'Readig spectrum for tauDimUnfold = %.3f to unfold...' % tauDimUnfold
     (eigValForwardUnfold,) \
-        = ergoPlot.readSpectrum(eigValForwardFileUnfold)
+        = ergoplot.readSpectrum(eigValForwardFileUnfold)
     
     # Sort thanks to the distance between the eigenvectors
     print 'Sorting...'
@@ -173,34 +173,34 @@ else:
 alpha = 0.01
 for ev in np.arange(nevPlot):
     print 'Plotting real part of eigenvector %d...' % (ev + 1,)
-    #ergoPlot.plot2D(X, Y, eigVecForward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
-    ergoPlot.plot2D(X, Y, eigVecForward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
+    #ergoplot.plot2D(X, Y, eigVecForward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
+    ergoplot.plot2D(X, Y, eigVecForward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
     dstFile = '%s/spectrum/eigvec/eigvecForwardReal_nev%d_ev%03d%s.%s' \
-              % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoPlot.figFormat)
-    plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
+              % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoplot.figFormat)
+    plt.savefig(dstFile, bbox_inches=ergoplot.bbox_inches, dpi=ergoplot.dpi)
     
     if plotImag & (eigValForward[ev].imag != 0):
         print 'Plotting imaginary  part of eigenvector %d...' % (ev + 1,)
-#        ergoPlot.plot2D(X, Y, eigVecForward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
-        ergoPlot.plot2D(X, Y, eigVecForward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
+#        ergoplot.plot2D(X, Y, eigVecForward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
+        ergoplot.plot2D(X, Y, eigVecForward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecForwardImag_nev%d_ev%03d%s.%s' \
-                  % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoPlot.figFormat)
-        plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
+                  % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoplot.figFormat)
+        plt.savefig(dstFile, bbox_inches=ergoplot.bbox_inches, dpi=ergoplot.dpi)
     
     # Plot eigenvectors of backward operator
     if plotBackward:
         print 'Plotting real part of backward eigenvector %d...' % (ev + 1,)
-        ergoPlot.plot2D(X, Y, eigVecBackward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
+        ergoplot.plot2D(X, Y, eigVecBackward[:, ev].real, ev_xlabel, ev_ylabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecBackwardReal_nev%d_ev%03d%s.%s' \
-                  % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoPlot.figFormat)
-        plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
+                  % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoplot.figFormat)
+        plt.savefig(dstFile, bbox_inches=ergoplot.bbox_inches, dpi=ergoplot.dpi)
         
         if plotImag & (eigValForward[ev].imag != 0):
             print 'Plotting imaginary  part of backward eigenvector %d...' % (ev + 1,)
-            ergoPlot.plot2D(X, Y, eigVecBackward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
+            ergoplot.plot2D(X, Y, eigVecBackward[:, ev].imag, ev_xlabel, ev_ylabel, alpha)
             dstFile = '%s/spectrum/eigvec/eigvecBackwardImag_nev%d_ev%03d%s.%s' \
-                      % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoPlot.figFormat)
-            plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
+                      % (cfg.general.plotDir, cfg.spectrum.nev, ev + 1, postfix, ergoplot.figFormat)
+            plt.savefig(dstFile, bbox_inches=ergoplot.bbox_inches, dpi=ergoplot.dpi)
 
             
 # Define observables
@@ -230,29 +230,29 @@ powerSample /= 2 * np.pi * cfg0
 
 # Reconstruct correlation and power spectrum
 # Get normalized weights
-weights = ergoPlot.getSpectralWeights(f, g, eigVecForward, eigVecBackward,
+weights = ergoplot.getSpectralWeights(f, g, eigVecForward, eigVecBackward,
                                       statDist, skipMean=True)
 # Remove components with heigh condition number
 weights[eigenCondition > cfg.stat.maxCondition] = 0.
 condition = np.empty(eigenCondition.shape, dtype='S1')
 condition[:] = 'k'
 condition[eigenCondition > cfg.stat.maxCondition - 0.001] = 'w'
-(corrRec, compCorrRec) = ergoPlot.spectralRecCorrelation(lags, f, g,
+(corrRec, compCorrRec) = ergoplot.spectralRecCorrelation(lags, f, g,
                                                          eigValGen, weights,
                                                          statDist,
                                                          skipMean=True,
                                                          norm=True)
-(powerRec, compPowerRec) = ergoPlot.spectralRecPower(angFreq, f, g,
+(powerRec, compPowerRec) = ergoplot.spectralRecPower(angFreq, f, g,
                                                      eigValGen, weights,
                                                      statDist, norm=True)
 
 # Plot correlation reconstruction
-ergoPlot.plotRecCorrelation(lags, corrSample, corrRec, plotPositive=True,
+ergoplot.plotRecCorrelation(lags, corrSample, corrRec, plotPositive=True,
                             ylabel=corrLabel, xlabel=xlabelCorr)
 plt.savefig('%s/spectrum/reconstruction/%sRec_lag%d_nev%d%s.%s'\
             % (cfg.general.plotDir, corrName, int(cfg.stat.lagMax),
-               cfg.spectrum.nev, postfix, ergoPlot.figFormat),
-            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+               cfg.spectrum.nev, postfix, ergoplot.figFormat),
+            dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 
 # PLot spectrum, powerSampledogram and spectral reconstruction
 weights /= cfg0
@@ -261,7 +261,7 @@ msize[weights.real > 0] = np.log10(weights[weights.real > 0].real)
 msize[weights.real > 0] = (msize[weights.real > 0] + 8) * 10
 # msize[weights.real > 0] = (msize[weights.real > 0] + 6) * 3
 msize[msize < 0] = 0.
-ergoPlot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
+ergoplot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
                          markersize=msize, condition=condition,
                          xlabel=realLabel, ylabel=imagLabel,
                          zlabel=powerLabel,
@@ -269,6 +269,6 @@ ergoPlot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
                          xticks=xticks, yticks=yticks, zticks=zticks)
 plt.savefig('%s/spectrum/reconstruction/%sRec_chunk%d_nev%d%s.%s'\
             % (cfg.general.plotDir, powerName, int(cfg.stat.chunkWidth),
-               cfg.spectrum.nev, postfix, ergoPlot.figFormat),
-            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+               cfg.spectrum.nev, postfix, ergoplot.figFormat),
+            dpi=ergoplot.dpi, bbox_inches=ergoplot.bbox_inches)
 

@@ -2,9 +2,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-from ergoPack import ergoPlot
-from matplotlib import cm, rcParams
-import os
+from ergopack import ergoplot
+from matplotlib import rcParams
 import pandas as pd
 
 configFile = os.path.join('..', 'cfg', 'transferCZ.cfg')
@@ -12,8 +11,7 @@ cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 fileFormat = cfg.general.fileFormat
 
-#muRng = np.array([2.5, 2.8, 2.9, 3.5])
-muRng = np.array([2.7, 2.75, 2.8, 2.85, 2.9])
+muRng = np.array([2.8, 2.85, 2.9, 2.95])
 
 # Transition lag
 timeScaleConversion = 1. / 12
@@ -43,7 +41,7 @@ yticksPos = np.arange(0, ylimEig[1], 5.)
 yticksNeg = np.arange(0, ylimEig[0], -5.)[::-1]
 yticks = np.concatenate((yticksNeg, yticksPos))
 zticks = np.logspace(np.log10(zlimEig[0]), np.log10(zlimEig[1]),
-                    int(np.round(np.log10(zlimEig[1]/zlimEig[0]) + 1)))
+                     int(np.round(np.log10(zlimEig[1]/zlimEig[0]) + 1)))
 zticks = np.logspace(np.log10(zlimEig[0]), np.log10(zlimEig[1]),
                      int(np.round(np.log10(zlimEig[1]/zlimEig[0])/2 + 1)))
 
@@ -98,7 +96,7 @@ for imu, mu in enumerate(muRng):
     # Read grid
     fileName = 'grid{}.txt'.format(gridPostfix)
     gridFilePath = os.path.join(cfg.general.resDir, 'grid', fileName)
-    coord = ergoPlot.readGrid(gridFilePath, dimObs)
+    coord = ergoplot.readGrid(gridFilePath, dimObs)
 
     # Coordinate matrices read in 'ij' indexing (not 'xy')!
     if dimObs == 1:
@@ -119,21 +117,30 @@ for imu, mu in enumerate(muRng):
         tau = tauDim * timeScaleConversion
         dstPostfixTau = "%s_tau%03d" % (gridPostfix, int(tauDim * 1000 + 0.1))
         specDir = os.path.join(cfg.general.plotDir, 'spectrum')
-        
+
         # File names
-        fileName = 'eigValForward_nev{:d}{}.{}'.format(nev, dstPostfixTau, fileFormat)
-        eigValForwardFile = os.path.join(cfg.general.specDir, 'eigval', fileName)
-        fileName = 'eigVecForward_nev{:d}{}.{}'.format(nev, dstPostfixTau, fileFormat)
-        eigVecForwardFile = os.path.join(cfg.general.specDir, 'eigvec', fileName)
-        fileName = 'eigValBackward_nev{:d}{}.{}'.format(nev, dstPostfixTau, fileFormat)
-        eigValBackwardFile = os.path.join(cfg.general.specDir, 'eigval', fileName)
-        fileName = 'eigVecBackward_nev{:d}{}.{}'.format(nev, dstPostfixTau, fileFormat)
-        eigVecBackwardFile = os.path.join(cfg.general.specDir, 'eigvec', fileName)
+        fileName = 'eigValForward_nev{:d}{}.{}'.format(
+            nev, dstPostfixTau, fileFormat)
+        eigValForwardFile = os.path.join(
+            cfg.general.specDir, 'eigval', fileName)
+        fileName = 'eigVecForward_nev{:d}{}.{}'.format(
+            nev, dstPostfixTau, fileFormat)
+        eigVecForwardFile = os.path.join(
+            cfg.general.specDir, 'eigvec', fileName)
+        fileName = 'eigValBackward_nev{:d}{}.{}'.format(
+            nev, dstPostfixTau, fileFormat)
+        eigValBackwardFile = os.path.join(
+            cfg.general.specDir, 'eigval', fileName)
+        fileName = 'eigVecBackward_nev{:d}{}.{}'.format(
+            nev, dstPostfixTau, fileFormat)
+        eigVecBackwardFile = os.path.join(
+            cfg.general.specDir, 'eigvec', fileName)
         fileName = 'initDist{}.{}'.format(dstPostfix, fileFormat)
         statDistFile = os.path.join(cfg.general.resDir, 'transfer',
                                     'initDist', fileName)
         fileName = 'mask{}.{}'.format(dstPostfix, fileFormat)
-        maskFile = os.path.join(cfg.general.resDir, 'transfer', 'mask', fileName)
+        maskFile = os.path.join(
+            cfg.general.resDir, 'transfer', 'mask', fileName)
 
         # Read stationary distribution
         if statDistFile is not None:
@@ -158,41 +165,41 @@ for imu, mu in enumerate(muRng):
         # of eigenvectors and backward eigenvectors:
         print('Readig spectrum for tauDim = {:.3f}...'.format(tauDim))
         (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-            = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+            = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                                     eigVecForwardFile, eigVecBackwardFile,
                                     makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
-                                    fileFormat=fileFormat) 
+                                    fileFormat=fileFormat)
 
-        eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
+        eigenCondition = ergoplot.getEigenCondition(
+            eigVecForward, eigVecBackward)
         eigCondTau.loc[tauDim, :nevPlot-1] = eigenCondition[:nevPlot]
-        
 
         # Get generator eigenvalues
-        eigValTau.loc[tauDim, :nevPlot-1] = ((np.log(np.abs(eigValForward)) + \
+        eigValTau.loc[tauDim, :nevPlot-1] = ((np.log(np.abs(eigValForward)) +
                                               np.angle(eigValForward)*1j) / tau)[:nevPlot]
     eigValTauMu.append(eigValTau)
 
     eigSel = eigValTau.loc[:, 1].real
     ax.plot(idx, eigSel, linewidth=lw, linestyle='-',
-            color=colors[imu%len(colors)],
+            color=colors[imu % len(colors)],
             label=r'$\Re(\lambda_1), \mu = {:.2f}$'.format(mu))
 for imu, mu in enumerate(muRng):
     eigValTau = eigValTauMu[imu]
     eigSel = eigValTau.loc[:, 3].real
     ax.plot(idx, eigSel, linewidth=lw, linestyle='--',
-            color=colors[imu%len(colors)],
+            color=colors[imu % len(colors)],
             label=r'$\Re(\lambda_3), \mu = {:.2f}$'.format(mu))
 
 ax.legend(loc='lower right', ncol=2)
-ax.set_xlabel(r'$\tau$', fontsize=ergoPlot.fs_latex)
-ax.set_ylabel(r'$\mathrm{Re}(\lambda_k)(\tau)$', fontsize=ergoPlot.fs_latex)
+ax.set_xlabel(r'$\tau$', fontsize=ergoplot.fs_latex)
+ax.set_ylabel(r'$\mathrm{Re}(\lambda_k)(\tau)$', fontsize=ergoplot.fs_latex)
 ax.set_ylim(-0.4, 0.)
 
 fileName = 'eigValTau_nev{:d}{}.{}'.format(
-    nev, dstPostfix, ergoPlot.figFormat)
+    nev, dstPostfix, ergoplot.figFormat)
 dstFile = os.path.join(specDir, 'eigval', fileName)
-fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-            dpi=ergoPlot.dpi)
+fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+            dpi=ergoplot.dpi)
 
 plt.show(block=False)
 ##

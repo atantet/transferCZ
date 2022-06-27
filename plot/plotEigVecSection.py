@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pylibconfig2
-import ergoPlot
+import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -83,7 +83,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
+coord = ergoplot.readGrid(gridFile, dimObs)
 
 # Coordinate matrices read in 'ij' indexing (not 'xy')!
 if dimObs == 1:
@@ -137,7 +137,7 @@ NFilled = np.max(mask[mask < N]) + 1
 # of eigenvectors and backward eigenvectors:
 print 'Readig spectrum for tauDim = %.3f...' % tauDim
 (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+    = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
                             fileFormat=fileFormat) 
@@ -157,12 +157,12 @@ xx = coord[coordPlot][idCut]
 figPhase = plt.figure()
 axPhase = figPhase.add_subplot(111)
 dstFilePhase = '%s/eigvec/eigvecBackwardPhaseCut_nev%d%s.%s' \
-               % (specDir, nev, dstPostfixTau, ergoPlot.figFormat)
+               % (specDir, nev, dstPostfixTau, ergoplot.figFormat)
 # Figure for the amp
 figAmp = plt.figure()
 axAmp = figAmp.add_subplot(111)
 dstFileAmp = '%s/eigvec/eigvecBackwardAmpCut_nev%d%s.%s' \
-             % (specDir, nev, dstPostfixTau, ergoPlot.figFormat)
+             % (specDir, nev, dstPostfixTau, ergoplot.figFormat)
 
 # Plot
 idPlot = np.array([1, 3, 5])
@@ -180,19 +180,19 @@ for ev in idPlot:
     
 # Configure plot of phase and save
 axPhase.legend(loc=locPhase)
-axPhase.set_xlabel(evlabels[coordPlot], fontsize=ergoPlot.fs_latex)
-axPhase.set_ylabel(r'$\mathrm{arg} \psi$', fontsize=ergoPlot.fs_latex)
-plt.setp(axPhase.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
-plt.setp(axPhase.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
-figPhase.savefig(dstFilePhase, bbox_inches=ergoPlot.bbox_inches,
-                 dpi=ergoPlot.dpi)
+axPhase.set_xlabel(evlabels[coordPlot], fontsize=ergoplot.fs_latex)
+axPhase.set_ylabel(r'$\mathrm{arg} \psi$', fontsize=ergoplot.fs_latex)
+plt.setp(axPhase.get_xticklabels(), fontsize=ergoplot.fs_xticklabels)
+plt.setp(axPhase.get_yticklabels(), fontsize=ergoplot.fs_yticklabels)
+figPhase.savefig(dstFilePhase, bbox_inches=ergoplot.bbox_inches,
+                 dpi=ergoplot.dpi)
 # Configure plot of amplitude and save
 axAmp.legend(loc=locAmp)
-axAmp.set_xlabel(evlabels[coordPlot], fontsize=ergoPlot.fs_latex)
-axAmp.set_ylabel(r'$|\psi|$', fontsize=ergoPlot.fs_latex)
-plt.setp(axAmp.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
-plt.setp(axAmp.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
-figAmp.savefig(dstFileAmp, bbox_inches=ergoPlot.bbox_inches,
-               dpi=ergoPlot.dpi)
+axAmp.set_xlabel(evlabels[coordPlot], fontsize=ergoplot.fs_latex)
+axAmp.set_ylabel(r'$|\psi|$', fontsize=ergoplot.fs_latex)
+plt.setp(axAmp.get_xticklabels(), fontsize=ergoplot.fs_xticklabels)
+plt.setp(axAmp.get_yticklabels(), fontsize=ergoplot.fs_yticklabels)
+figAmp.savefig(dstFileAmp, bbox_inches=ergoplot.bbox_inches,
+               dpi=ergoplot.dpi)
 
     

@@ -31,8 +31,7 @@
 *.eps
 *.png
 
-# Backups
-*~
+# Mac OS X
 .DS_Store
 
 # Results and data
@@ -41,3 +40,7 @@ data/
 
 # Never ignore python scripts
 !*.py
+
+# Emacs
+*~
+\#*

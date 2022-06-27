@@ -2,7 +2,7 @@ import os
 import numpy as np
 from matplotlib import cm
 import pylibconfig2
-from ergoPack import ergoPlot
+from ergopack import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -90,7 +90,7 @@ gridPostfix = '_%s%s%s' % (srcPostfix, obsName, cpyBuffer)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
+coord = ergoplot.readGrid(gridFile, dimObs)
 
 # Coordinate matrices read in 'ij' indexing (not 'xy')!
 if dimObs == 1:
@@ -133,13 +133,13 @@ NFilled = np.max(mask[mask < N]) + 1
 # of eigenvectors and backward eigenvectors:
 print('Readig spectrum for tauDim = {:.3f}...'.format(tauDim))
 (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+    = ergoplot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
                             fileFormat=fileFormat)
 
 print('Getting conditionning of eigenvectors...')
-eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward)
+eigenCondition = ergoplot.getEigenCondition(eigVecForward, eigVecBackward)
 
 # Get generator eigenvalues
 eigValGen = (np.log(np.abs(eigValForward)) + np.angle(eigValForward)*1j) / tau
@@ -156,7 +156,7 @@ for ev in evPlot:
 
     if plotForward:
         print('Plotting polar eigenvector {:d}...'.format(ev + 1))
-        fig = ergoPlot.plotEigVecPolarCombine(
+        fig = ergoplot.plotEigVecPolarCombine(
             X, Y, eigVecForward[ev], mask=mask, xlabel=ev_xlabel,
             ylabel=ev_ylabel, alpha=alpha, cmap=cmap, ampMin=ampMin,
             ampMax=ampMax, nlevAmp=nlevAmp, csfilter=csfilter, xmin=xmin,
@@ -164,12 +164,12 @@ for ev in evPlot:
             ytick_formatter=ytick_formatter, cbar_format=cbar_format)
 
         dstFile = '%s/eigvec/eigvecForwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
-        fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                    dpi=ergoPlot.dpi)
+                  % (specDir, nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
+        fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                    dpi=ergoplot.dpi)
     if plotBackward:
         print('Plotting polar backward eigenvector {:d}...'.format(ev + 1))
-        fig = ergoPlot.plotEigVecPolarCombine(
+        fig = ergoplot.plotEigVecPolarCombine(
             X, Y, eigVecBackward[ev], mask=mask, xlabel=ev_xlabel,
             ylabel=ev_ylabel, alpha=alpha, cmap=cmap, ampMin=ampMin,
             ampMax=ampMax, nlevAmp=nlevAmp, csfilter=csfilter,
@@ -177,6 +177,6 @@ for ev in evPlot:
             xtick_formatter=xtick_formatter, ytick_formatter=ytick_formatter,
             cbar_format=cbar_format)
         dstFile = '%s/eigvec/eigvecBackwardPolar_nev%d_ev%03d%s.%s' \
-                  % (specDir, nev, ev + 1, dstPostfixTau, ergoPlot.figFormat)
-        fig.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
-                    dpi=ergoPlot.dpi)
+                  % (specDir, nev, ev + 1, dstPostfixTau, ergoplot.figFormat)
+        fig.savefig(dstFile, bbox_inches=ergoplot.bbox_inches,
+                    dpi=ergoplot.dpi)

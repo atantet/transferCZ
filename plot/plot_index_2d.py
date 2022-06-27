@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm, colors
 import pylibconfig2
-import ergoPlot
+import ergoplot
 
 configFile = '../cfg/transferCZ.cfg'
 cfg = pylibconfig2.Config()
@@ -102,12 +102,12 @@ for eps in epsRng:
 #        plt.title('Time-series of %s averaged over %s\nfor mu = %.1f and eps = %.2f' % (fieldsDef[1], indexDef[0], mu, eps))
         ax.set_xlabel('%s %s (%s)' % (indicesName[0][0], fieldsDef[0][1],
                                       fieldsDef[0][3]),
-                      fontsize=ergoPlot.fs_latex)
+                      fontsize=ergoplot.fs_latex)
         ax.set_ylabel('%s %s (%s)' % (indicesName[1][0], fieldsDef[1][1],
                                       fieldsDef[1][3]),
-                      fontsize=ergoPlot.fs_latex)
-        plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
-        plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
+                      fontsize=ergoplot.fs_latex)
+        plt.setp(ax.get_xticklabels(), fontsize=ergoplot.fs_xticklabels)
+        plt.setp(ax.get_yticklabels(), fontsize=ergoplot.fs_yticklabels)
         xlim = ax.get_xlim()
         ylim = ax.get_ylim()
         ax.text(xlim[0] + 0.2 * (xlim[1] - xlim[0]),
@@ -117,6 +117,6 @@ for eps in epsRng:
                     % (pltDir, indicesName[0][1], fieldsDef[0][2],
                        indicesName[1][1], fieldsDef[1][2],
                        srcPostfix, figFormat)
-        fig.savefig(figName, bbox_inches=ergoPlot.bbox_inches,
-                    dpi=ergoPlot.dpi)
+        fig.savefig(figName, bbox_inches=ergoplot.bbox_inches,
+                    dpi=ergoplot.dpi)
     
